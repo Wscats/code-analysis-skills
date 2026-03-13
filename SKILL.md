@@ -1,5 +1,6 @@
 ---
 name: code-analysis
+license: MIT
 description: >
   This skill should be used when the user needs to analyze Git repositories,
   compare developer commit patterns, work habits, development efficiency,

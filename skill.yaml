@@ -6,6 +6,7 @@ description: >
   and code quality for specified developers or all contributors.
 author: reky
 license: MIT
+acceptLicenseTerms: true
 tags:
   - code-analysis
   - git
