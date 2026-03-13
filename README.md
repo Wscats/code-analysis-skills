@@ -1,165 +1,166 @@
-# 📊 代码分析技能 (Code Analysis Skills)
+# 我写了一个团队体检报告生成器，把摸鱼的同事扒出来了😅
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-orange)](skill.yaml)
+> 你有没有好奇过，你的队友到底是几点写的代码？是凌晨三点灵感爆发的夜猫子，还是朝九晚五准时下班的养生达人？
 
-一款全面的 Git 仓库分析工具，可扫描代码仓库并生成多维度的开发者洞察报告——涵盖**提交模式**、**工作习惯**、**开发效率**、**代码风格**和**代码质量**五大维度。
+## 一切的起源：一个深夜的疑问
+
+故事要从一个加班到凌晨两点的夜晚说起。
+
+那天我照例在提交代码，突然发现 Git log 里有一条提交时间是 03:47 -- 来自我们组的后端同学。我震惊之余又有点心疼，然后下意识地翻了翻其他人的记录，发现了更多有趣的事：有人专挑周末提交，有人的 commit message 永远只有一个字 "fix"，还有人一个提交能改 500 个文件……
+
+我心想，如果把这些数据系统地分析一下，会不会看到一幅很有意思的开发者画像？
+
+这就是 [code-analysis-skills](https://clawhub.ai/Wscats/code-analysis-skills) 诞生的初心。
+
+## 它是什么？
+
+简单来说，这是一个 Git 仓库分析工具的 Skill 插件。它做的事情很纯粹：扫描你指定的 Git 仓库，或者一整个目录下的所有仓库，然后像一个沉默的观察者，把每个开发者的行为数据抽丝剥茧，最终生成一份五维度的体检报告。
+
+五个维度分别是：
+
+* **提交习惯** -- 你一天提交几次？每次改多少行？commit message 写了几个字？
+* **工作习惯** -- 你是早起鸟还是夜猫子？周末有没有在偷偷加班？最长连续写了几天代码？
+* **研发效率** -- 你写的代码有多少后来又被删了？是不是经常在同一个文件上反复改？
+* **代码风格** -- 你主要写什么语言？commit message 有没有遵循规范？
+* **代码质量** -- 修 bug 的提交占了多大比例？有没有动不动就一个大提交甩上来？
+
+## 扒出来的「真实画像」
+
+我用它分析了团队仓库后，看到的一些真实画面：
+
+### 深夜战士 -- "A 同学"
+
+```
+Peak Hour: 22:00
+Weekend Ratio: 100.0%
+Late Night Ratio: 100.0%
+```
+
+这位老兄的提交时间几乎全部集中在深夜，而且清一色在周末。如果你半夜两点 @ 他，大概率能秒回。他不是不睡觉，他只是把白天的时间让给了生活，然后在万籁俱寂的时候打开编辑器，一个人安静地写代码。
+
+不过看数据也会发现一些值得关注的信号：他的代码流失率高达 66%，意味着写下的代码有三分之二后来又被删除了。这可能是探索性编码的正常现象 -- 毕竟深夜写代码，有时候是先写再想，写完再推倒重来。他的返工率也有 46.2%，7 天内重复修改同一个文件的频率不低。
+
+但换个角度想，这也许恰恰说明他是一个追求完美的人，代码写完不满意，再改，改完还是不满意，接着改。
+
+### 批量输出者 -- "B 同学"
+
+```
+Total Lines Added: 84,224
+Avg Lines per Commit: 21,056
+Large Commit Ratio: 50.0%
+Ownership Ratio: 100.0%
+```
+
+看到这个数据的时候我差点以为分析工具出了 bug，单次提交平均两万行？再仔细一看，原来是做项目初始化和大规模迁移的。他拥有仓库中 100% 的文件所有权，是当之无愧的项目奠基人。
+
+有趣的是，他的代码流失率为 0%，写下的每一行代码都还活着。搞基建的人就是这样，一砖一瓦都是实打实的。不过他的 commit message 也就 30 来个字符，简洁高效，有那味了。
+
+### 周末勇士 -- "C 同学"
+
+```
+Weekend Ratio: 66.7%
+Late Night Ratio: 33.3%
+Churn Rate: 3.8%
+```
+
+三分之二的提交都在周末，还有三分之一在深夜。但看另一组数据就知道，这是一个效率极高的人：代码流失率只有 3.8%，几乎不做无用功。每一次提交都目标明确，落笔精准。如果说深夜战士是先写再想，那这位就是想清楚再写。
+
+### 偶尔现身的贡献者 -- "D 同学"
+
+```
+Total Commits: 1
+Active Span: 1 day
+```
+
+有些人在项目中只留下了一个提交，但那一个提交可能就是修了一个关键 bug，或者补上了一段缺失的文档。开源世界里不存在贡献太少这一说，每一个 commit 背后，都是一个真实的人在某个时刻打开了编辑器，读懂了代码，然后伸出了手。
+
+## 技术解剖：它是怎么做到的？
+
+### 架构一览
+
+整个项目的架构非常清晰，像一条流水线：
+
+```
+路径输入 → Scanner 发现仓库 → 5 个 Analyzer 遍历 Git 历史 → Reporter 生成报告
+```
+
+* **Scanner** 负责扫描，找到指定路径下的所有 Git 仓库（最深 5 层），用 GitPython 验证合法性，跳过裸仓库和符号链接循环
+* **5 个 Analyzer** 各司其职，用 [PyDriller](https://github.com/ishepard/pydriller) 遍历提交历史，按作者分组聚合数据
+* **3 个 Reporter** 提供 Markdown、JSON、HTML 三种输出格式
+
+### 核心算法亮点
+
+几个我觉得设计得比较巧妙的地方：
+
+**1. 返工率 Rework Ratio 的计算**
+
+如果你在 7 天内对同一个文件改了两次以上，就算一次返工。这个定义很现实 -- 真正的返工通常发生在短时间内反复修改同一个地方，可能是需求变了，可能是 code review 的反馈，也可能是自己发现了之前的问题。
+
+**2. 文件所有权 Ownership 的判定**
+
+如果你对某个文件的修改次数超过了所有人修改该文件总次数的 50%，你就拥有这个文件。这个概念借鉴了 Google 的 Code Ownership 实践 -- 每个文件都应该有一个主人，出了问题知道找谁。
+
+**3. Bus Factor 的衡量**
+
+如果某个人被公交车撞了，不是真的，项目还能继续吗？工具统计每个文件有多少独立贡献者，取平均值。如果这个数字低于 2，说明知识过于集中，团队需要注意知识共享。
+
+**4. 深夜编码的精确定义**
+
+22:00 到次日 04:59 都算深夜编码。这不是为了抓考勤，而是为了发现团队健康问题。如果一个人的深夜编码比例长期超过 15%，也许不是他效率高，而是白天的会议太多了。
+
+### 代码风格检测
+
+工具还会检测 commit message 是否遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范，以及是否关联了 Issue 编号。这两个数据看似简单，其实反映了一个团队的工程化成熟度。
+
+如果你的团队 Conventional Commit 遵循率低于 50%，可能需要考虑引入 commitlint 之类的工具了。
+
+## 用法很简单
+
+作为 Skill 插件，你可以直接在对话中触发：
+
+```
+"分析一下这个仓库某人的研发效率"
+"帮我看看团队成员的工作习惯"
+"对比一下 Alice 和 Bob 的代码质量"
+```
+
+也可以直接用命令行：
+
+```bash
+# 分析单个仓库
+python src/main.py -r /path/to/repo
+
+# 扫描整个目录
+python src/main.py -r /path/to/projects --scan-all
+
+# 指定时间范围，生成 HTML 报告
+python src/main.py -r /path/to/repo -s 2025-01-01 -u 2025-12-31 -f html -o report.html
+```
+
+生成的报告长这样：
+
+| Author | Commits | Lines Changed | Commits/Day | Weekend % | Late Night % | Bug Fix % | Churn Rate |
+|--------|---------|---------------|-------------|-----------|-------------|-----------|------------|
+| wscats | 7 | 102 | 3.5 | 100.0% | 42.9% | 0.0% | 43.7% |
+| enoyao | 4 | 84, 226 | 1.33 | 25.0% | 0.0% | 0.0% | 0.0% |
+| reky | 3 | 27 | 1.0 | 66.7% | 33.3% | 0.0% | 3.8% |
+
+每个人的数据都是一面镜子。
+
+## 写在最后：数据不是枷锁
+
+我必须坦诚地说：**这个工具不是用来搞绩效考核的。**
+
+数据可以帮我们发现问题，但不能定义一个人的价值。那个凌晨三点提交代码的同事，也许比任何人都更热爱这个项目；那个 commit message 只写 "fix" 的人，也许正在争分夺秒地修复一个线上事故；那个只贡献了一个提交的人，也许是花了整整一周才理解了代码才敢动手。
+
+写这个工具的初心，是想透过冰冷的 Git 记录，看到背后一个个**真实的、有温度的人**。看到他们的工作节奏，理解他们的习惯，在必要时帮助他们 -- 比如发现某人连续深夜加班，也许该找他聊聊是不是遇到了什么困难。
+
+代码会说话，但只有用心听，才能听到正确的答案。
 
 ---
 
-## ✨ 功能特性
+*项目地址：[https://clawhub.ai/Wscats/code-analysis-skills](https://clawhub.ai/Wscats/code-analysis-skills)*
 
-- 🔍 **仓库扫描** — 分析单个 Git 仓库，或递归扫描目录下所有 `.git` 仓库
-- 📝 **提交模式** — 提交频率、提交大小分布、合并比例、提交信息质量评分
-- ⏰ **工作习惯** — 工作时段分布、周末/深夜编码比例、连续编码天数统计
-- 🚀 **开发效率** — 代码流失率、返工比例、巴士因子、文件归属分析
-- 🎨 **代码风格** — 编程语言分布、约定式提交合规率、文件分类统计
-- 🔎 **代码质量** — Bug 修复比例、回退频率、大提交比例、测试覆盖率、Python 复杂度分析（基于 radon）
-- 👥 **多开发者对比** — 所有维度的横向对比表格
-- 📄 **多种输出格式** — 支持 Markdown、JSON 或带样式的 HTML 报告
+*技术栈：Python + GitPython + PyDriller + Radon + Jinja2 + Click*
 
-## 📦 安装
-
-### 前置要求
-
-- Python 3.9+
-- Git
-
-### 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-或单独安装各依赖包：
-
-```bash
-pip install gitpython pydriller radon tabulate jinja2 click pyyaml pylint
-```
-
-## 🚀 使用方法
-
-### 基本命令
-
-```bash
-# 分析单个仓库（所有贡献者）
-python src/main.py -r /path/to/repo
-
-# 递归扫描目录下所有 Git 仓库
-python src/main.py -r /path/to/projects --scan-all
-
-# 对比指定开发者
-python src/main.py -r /path/to/repo -a "Alice" -a "Bob"
-
-# 按日期范围过滤
-python src/main.py -r /path/to/repo -s 2024-01-01 -u 2024-12-31
-
-# 生成 HTML 报告
-python src/main.py -r /path/to/repo -f html -o report.html
-
-# 将 Markdown 报告保存到文件
-python src/main.py -r /path/to/repo -o report.md
-```
-
-### 命令行参数
-
-| 参数 | 说明 | 默认值 |
-|---|---|---|
-| `-r, --repo` | Git 仓库或父目录路径 | *（必填）* |
-| `--scan-all` | 递归扫描所有 `.git` 仓库 | `false` |
-| `-a, --author` | 要分析的作者名/邮箱（可重复指定） | 所有贡献者 |
-| `-s, --since` | 起始日期（ISO 格式：`YYYY-MM-DD`） | — |
-| `-u, --until` | 截止日期（ISO 格式：`YYYY-MM-DD`） | — |
-| `-b, --branch` | 要分析的分支 | 当前分支 |
-| `-f, --format` | 输出格式：`markdown`、`json`、`html` | `markdown` |
-| `-o, --output` | 输出文件路径 | 标准输出 |
-
-## 📁 项目结构
-
-```
-code-analysis-skills/
-├── src/
-│   ├── main.py                 # CLI 入口
-│   ├── scanner.py              # 仓库扫描器（单仓库 & 递归扫描）
-│   ├── analyzers/
-│   │   ├── base_analyzer.py    # 基础分析器（Git 遍历 & 作者过滤）
-│   │   ├── commit_analyzer.py  # 提交模式分析
-│   │   ├── work_habit_analyzer.py  # 工作习惯分析
-│   │   ├── efficiency_analyzer.py  # 开发效率分析
-│   │   ├── code_style_analyzer.py  # 代码风格分析
-│   │   └── code_quality_analyzer.py # 代码质量分析
-│   ├── reporters/
-│   │   ├── base_reporter.py    # 报告生成器基类
-│   │   ├── markdown_reporter.py # Markdown 报告生成器
-│   │   ├── json_reporter.py    # JSON 报告生成器
-│   │   └── html_reporter.py    # 带样式的 HTML 报告生成器
-│   └── utils/
-│       └── helpers.py          # 工具函数
-├── tests/
-│   ├── test_analyzers.py       # 分析器单元测试
-│   └── test_scanner.py         # 扫描器单元测试
-├── references/
-│   └── metrics-guide.md        # 指标定义与健康范围参考
-├── SKILL.md                    # ClawHub 技能定义
-├── skill.yaml                  # 技能配置文件
-├── requirements.txt            # Python 依赖清单
-├── pyproject.toml              # 项目元数据
-└── pytest.ini                  # 测试配置
-```
-
-## 📊 分析维度详解
-
-### 1. 📝 提交模式
-- 提交频率（日/周维度）
-- 提交规模（每次提交的增删行数）
-- 合并提交占比
-- 提交信息质量评分
-
-### 2. ⏰ 工作习惯
-- 工作时段热力图（按小时分布）
-- 周末编码百分比
-- 深夜编码百分比（22:00–06:00）
-- 最长连续编码天数
-
-### 3. 🚀 开发效率
-- 代码流失率（删除行数 / 新增行数）
-- 返工比例（对近期修改文件的再次修改）
-- 巴士因子（代码集中度风险指标）
-- 文件归属分布
-
-### 4. 🎨 代码风格
-- 编程语言分布
-- 约定式提交（Conventional Commits）合规率
-- 文件类型分类（源码 / 测试 / 配置 / 文档）
-
-### 5. 🔍 代码质量
-- Bug 修复提交占比
-- 回退（Revert）提交频率
-- 大提交占比（潜在代码异味）
-- 测试文件覆盖率
-- Python 代码复杂度（基于 radon 的圈复杂度分析）
-
-## 🧪 测试
-
-```bash
-# 运行所有测试
-pytest
-
-# 详细输出模式
-pytest -v
-
-# 运行指定测试文件
-pytest tests/test_analyzers.py
-```
-
-## ⚠️ 注意事项
-
-- 分析大型仓库（10 万+ 提交）可能耗时较长，建议限定日期范围
-- Python 复杂度分析依赖 `radon`，仅适用于 `.py` 文件
-- 作者匹配支持模糊匹配（名称或邮箱子串匹配）
-- 目录扫描默认最大深度为 5 层，避免过深递归
-
-## 📄 许可证
-
-本项目基于 MIT 许可证开源 — 详见 [LICENSE](LICENSE) 文件。
+*开源协议：MIT -- 拿去用，拿去改，拿去看看你的团队。*
