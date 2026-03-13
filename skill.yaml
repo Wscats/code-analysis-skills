@@ -1,0 +1,68 @@
+name: code-analysis-skills
+version: 1.0.0
+description: >
+  A comprehensive Git repository code analysis skill that scans repositories,
+  analyzes commit patterns, work habits, development efficiency, code style,
+  and code quality for specified developers or all contributors.
+author: reky
+license: MIT
+tags:
+  - code-analysis
+  - git
+  - developer-insights
+  - code-quality
+  - commit-patterns
+
+runtime: python
+entry: src/main.py
+
+parameters:
+  - name: repo_path
+    type: string
+    description: >
+      Path to a specific Git repository, or a parent directory to scan for all .git repositories.
+    required: true
+
+  - name: scan_all_repos
+    type: boolean
+    description: >
+      If true, recursively scan the repo_path directory for all .git repositories.
+    default: false
+
+  - name: authors
+    type: list
+    description: >
+      List of author names or emails to analyze. If empty, analyze all contributors.
+    default: []
+
+  - name: since
+    type: string
+    description: >
+      Start date for analysis (ISO format, e.g., '2024-01-01').
+    default: ""
+
+  - name: until
+    type: string
+    description: >
+      End date for analysis (ISO format, e.g., '2024-12-31').
+    default: ""
+
+  - name: branch
+    type: string
+    description: >
+      Branch to analyze. Defaults to the current active branch.
+    default: ""
+
+  - name: output_format
+    type: string
+    description: >
+      Output format: 'json', 'markdown', or 'html'.
+    default: "markdown"
+
+outputs:
+  - name: report
+    type: string
+    description: The generated analysis report.
+  - name: metrics
+    type: object
+    description: Structured metrics data for all analyzed authors.
