@@ -26,6 +26,8 @@ Thumbs.db
 output/
 *.html
 !src/reporters/html_reporter.py
+report.*
+!report.md
 
 # Test
 .pytest_cache/
