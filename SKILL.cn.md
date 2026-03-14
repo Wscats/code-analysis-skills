@@ -17,21 +17,89 @@ description: >
 
 扫描指定仓库或目录下所有 Git 仓库，分析并对比开发者的提交习惯、工作习惯、研发效率、代码风格、代码质量和摸鱼指数，对每个开发者进行严肃、直接的评估打分，生成结构化分析报告（支持 Markdown / HTML / JSON / PDF）。
 
-## 💬 作为 Skill 插件使用（最简单）
+## 💬 自然语言对话（推荐）
 
-作为 Skill 插件，你可以直接在对话中触发分析，无需输入任何命令：
+你不需要记住任何命令——直接用你熟悉的语言描述你的需求即可：
+
+### 🇨🇳 中文
 
 ```
-"分析一下 /path/to/repo 这个仓库 Alice 的研发效率"
-"帮我看看 /path/to/repo 团队成员的工作习惯"
-"对比一下 /path/to/repo 里 Alice 和 Bob 的代码质量"
-"看看 /path/to/repo 这个项目的摸鱼指数"
-"给 /path/to/repo 的所有开发者做个完整评估"
+💬 "分析一下这个仓库 Alice 的研发效率"
+💬 "帮我看看团队成员的工作习惯"
+💬 "对比一下 Alice 和 Bob 的代码质量"
+💬 "看看这个项目的摸鱼指数"
+💬 "给所有开发者做个完整评估打分"
+💬 "谁的代码质量最差？帮我分析下"
+💬 "最近一个月团队的提交习惯怎么样？"
+💬 "这个仓库有什么问题？帮我诊断下"
+```
+
+### 🇺🇸 English
+
+```
+💬 "Analyze Alice's development efficiency in /path/to/repo"
+💬 "Show me the team's work habits in this project"
+💬 "Compare Alice and Bob's code quality"
+💬 "What's the slacking index of this project?"
+💬 "Generate a full developer evaluation report"
+💬 "Score all developers and tell me who's slacking"
+💬 "What's wrong with Bob's commit habits?"
+💬 "Here's my repo, can you analyze the team?"
+```
+
+### 🇯🇵 日本語
+
+```
+💬 "このリポジトリの開発者効率を分析してください"
+💬 "チームメンバーの作業習慣を見せてください"
+💬 "AliceとBobのコード品質を比較してください"
+💬 "このプロジェクトのサボり指数は？"
+💬 "全開発者の評価レポートを作成してください"
+```
+
+### 🇰🇷 한국어
+
+```
+💬 "이 레포지토리의 개발 효율성을 분석해줘"
+💬 "팀원들의 작업 습관을 보여줘"
+💬 "Alice와 Bob의 코드 품질을 비교해줘"
+💬 "이 프로젝트의 땡땡이 지수가 뭐야?"
+💬 "모든 개발자에 대한 평가 보고서를 만들어줘"
+```
+
+### 🇪🇸 Español
+
+```
+💬 "Analiza la eficiencia de desarrollo de Alice en este repositorio"
+💬 "Muéstrame los hábitos de trabajo del equipo"
+💬 "Compara la calidad del código de Alice y Bob"
+💬 "¿Cuál es el índice de holgazanería de este proyecto?"
+💬 "Genera un informe de evaluación completo de los desarrolladores"
+```
+
+### 🇫🇷 Français
+
+```
+💬 "Analyse l'efficacité de développement d'Alice dans ce dépôt"
+💬 "Montre-moi les habitudes de travail de l'équipe"
+💬 "Compare la qualité du code d'Alice et de Bob"
+💬 "Quel est l'indice de paresse de ce projet ?"
+💬 "Génère un rapport d'évaluation complet des développeurs"
+```
+
+### 🇩🇪 Deutsch
+
+```
+💬 "Analysiere die Entwicklungseffizienz von Alice in diesem Repository"
+💬 "Zeig mir die Arbeitsgewohnheiten des Teams"
+💬 "Vergleiche die Codequalität von Alice und Bob"
+💬 "Was ist der Faulenzer-Index dieses Projekts?"
+💬 "Erstelle einen vollständigen Bewertungsbericht für alle Entwickler"
 ```
 
 > **注意**：你需要提供仓库路径（`repo_path`），这是必填参数。如果你已经在某个仓库上下文中工作，代理可能会从对话中推断路径，但建议始终明确指定路径以确保准确性。
 
-Skill 会对指定仓库执行分析并返回结构化报告。像聊天一样自然地使用即可。
+Skill 能理解上述所有语言。只需描述你的需求，它就会对你的仓库执行分析并返回结构化报告。
 
 ---
 
