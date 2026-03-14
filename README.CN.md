@@ -35,7 +35,7 @@ pip install -r requirements.txt
 或单独安装各依赖包：
 
 ```bash
-pip install gitpython pydriller radon tabulate jinja2 click pyyaml pylint
+pip install gitpython pydriller radon tabulate jinja2 click pyyaml reportlab
 ```
 
 ## 🚀 使用方法
@@ -44,22 +44,28 @@ pip install gitpython pydriller radon tabulate jinja2 click pyyaml pylint
 
 ```bash
 # 分析单个仓库（所有贡献者）
-python src/main.py -r /path/to/repo
+python -m src.main -r /path/to/repo
 
 # 递归扫描目录下所有 Git 仓库
-python src/main.py -r /path/to/projects --scan-all
+python -m src.main -r /path/to/projects --scan-all
 
 # 对比指定开发者
-python src/main.py -r /path/to/repo -a "Alice" -a "Bob"
+python -m src.main -r /path/to/repo -a "Alice" -a "Bob"
 
 # 按日期范围过滤
-python src/main.py -r /path/to/repo -s 2024-01-01 -u 2024-12-31
+python -m src.main -r /path/to/repo -s 2024-01-01 -u 2024-12-31
 
 # 生成 HTML 报告
-python src/main.py -r /path/to/repo -f html -o report.html
+python -m src.main -r /path/to/repo -f html -o report.html
+
+# 同时生成 Markdown + HTML + PDF
+python -m src.main -r /path/to/repo -f "markdown,html,pdf" -o report
+
+# 生成 PDF 报告
+python -m src.main -r /path/to/repo -f pdf -o report.pdf
 
 # 将 Markdown 报告保存到文件
-python src/main.py -r /path/to/repo -o report.md
+python -m src.main -r /path/to/repo -o report.md
 ```
 
 ### 命令行参数
@@ -72,8 +78,8 @@ python src/main.py -r /path/to/repo -o report.md
 | `-s, --since` | 起始日期（ISO 格式：`YYYY-MM-DD`） | — |
 | `-u, --until` | 截止日期（ISO 格式：`YYYY-MM-DD`） | — |
 | `-b, --branch` | 要分析的分支 | 当前分支 |
-| `-f, --format` | 输出格式：`markdown`、`json`、`html` | `markdown` |
-| `-o, --output` | 输出文件路径 | 标准输出 |
+| `-f, --format` | 输出格式：`markdown`、`json`、`html`、`pdf`（逗号分隔可多选） | `markdown` |
+| `-o, --output` | 输出文件路径（多格式时为基础文件名） | 标准输出 |
 
 ## 📁 项目结构
 
@@ -88,12 +94,16 @@ code-analysis-skills/
 │   │   ├── work_habit_analyzer.py  # 工作习惯分析
 │   │   ├── efficiency_analyzer.py  # 开发效率分析
 │   │   ├── code_style_analyzer.py  # 代码风格分析
-│   │   └── code_quality_analyzer.py # 代码质量分析
+│   │   ├── code_quality_analyzer.py # 代码质量分析
+│   │   └── slacking_analyzer.py # 摸鱼指数分析
+│   ├── evaluator/
+│   │   └── developer_evaluator.py  # 开发者评估引擎
 │   ├── reporters/
 │   │   ├── base_reporter.py    # 报告生成器基类
 │   │   ├── markdown_reporter.py # Markdown 报告生成器
 │   │   ├── json_reporter.py    # JSON 报告生成器
-│   │   └── html_reporter.py    # 带样式的 HTML 报告生成器
+│   │   ├── html_reporter.py    # 带样式的 HTML 报告生成器
+│   │   └── pdf_reporter.py     # PDF 报告生成器
 │   └── utils/
 │       └── helpers.py          # 工具函数
 ├── tests/
@@ -140,6 +150,18 @@ code-analysis-skills/
 - 测试文件覆盖率
 - Python 代码复杂度（基于 radon 的圈复杂度分析）
 
+### 6. 🐟 摸鱼指数
+- 综合 7 大信号评估开发者投入度（0-100 分）
+- 信号包括：稀疏度、琐碎提交、消失模式、低产出、非代码提交、拖延症、复制粘贴
+- 等级：🔥 工作狂 → ✅ 正常 → 😏 有嫌疑 → 🐟 摸鱼达人 → 🏆 摸鱼大师
+
+### 7. 🏆 开发者评估
+- 六维度加权评分（提交纪律 15% + 工作一致性 15% + 效率 20% + 代码质量 25% + 风格 10% + 参与度 15%）
+- 等级：S / A / B / C / D / E / F
+- 严肃直接的优点、缺点点评
+- 可立即执行的改进建议
+- 一句话定论
+
 ## 🧪 测试
 
 ```bash
@@ -159,6 +181,21 @@ pytest tests/test_analyzers.py
 - Python 复杂度分析依赖 `radon`，仅适用于 `.py` 文件
 - 作者匹配支持模糊匹配（名称或邮箱子串匹配）
 - 目录扫描默认最大深度为 5 层，避免过深递归
+- PDF 生成优先使用 weasyprint，回退到 pdfkit，最终回退到 reportlab
+- 评估结果仅基于 Git 提交历史数据，不代表开发者的全部能力
+- 摸鱼指数仅供参考，需结合实际工作场景理解
+
+## ⚠️ 隐私与数据安全声明
+
+> **重要提示**：本工具会从 Git 提交历史中提取开发者个人活动数据（提交时间、频率、行为模式等）。
+
+**使用前请务必注意：**
+
+- ✅ 本工具**完全本地运行**，不会向任何外部服务器传输数据
+- ⚠️ 分析他人仓库前，请**获得相关开发者的知情同意**
+- 🚫 分析结果**不应直接用于**绩效考核、薪酬决策或惩罚性管理
+- 🔒 生成的报告包含个人信息，请**妥善保管**，不应公开分享
+- 📋 使用前请确认符合组织的 HR 政策和当地数据保护法规（如 GDPR）
 
 ## 📄 许可证
 

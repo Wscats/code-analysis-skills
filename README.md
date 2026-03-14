@@ -128,13 +128,16 @@ Active Span: 1 day
 
 ```bash
 # 分析单个仓库
-python src/main.py -r /path/to/repo
+python -m src.main -r /path/to/repo
 
 # 扫描整个目录
-python src/main.py -r /path/to/projects --scan-all
+python -m src.main -r /path/to/projects --scan-all
 
 # 指定时间范围，生成 HTML 报告
-python src/main.py -r /path/to/repo -s 2025-01-01 -u 2025-12-31 -f html -o report.html
+python -m src.main -r /path/to/repo -s 2025-01-01 -u 2025-12-31 -f html -o report.html
+
+# 同时生成 Markdown + HTML + PDF
+python -m src.main -r /path/to/repo -f "markdown,html,pdf" -o report
 ```
 
 生成的报告长这样：
@@ -157,10 +160,30 @@ python src/main.py -r /path/to/repo -s 2025-01-01 -u 2025-12-31 -f html -o repor
 
 代码会说话，但只有用心听，才能听到正确的答案。
 
+## ⚠️ 隐私与数据安全声明
+
+> **重要提示**：本工具会从 Git 提交历史中提取开发者个人活动数据（提交时间、频率、行为模式等）。
+
+**使用前请务必注意：**
+
+- ✅ 本工具**完全本地运行**，不会向任何外部服务器传输数据
+- ⚠️ 分析他人仓库前，请**获得相关开发者的知情同意**
+- 🚫 分析结果**不应直接用于**绩效考核、薪酬决策或惩罚性管理
+- 🔒 生成的报告包含个人信息，请**妥善保管**，不应公开分享
+- 📋 使用前请确认符合组织的 HR 政策和当地数据保护法规（如 GDPR）
+
+## 🆕 v1.1.0 新增功能
+
+- 🐟 **摸鱼指数** — 综合 7 大信号（稀疏度、琐碎提交、消失模式、低产出等）评估开发者投入度
+- 🏆 **开发者评估** — 六维度加权评分（S/A/B/C/D/E/F 等级），严肃直接的优缺点点评和建议
+- 📊 **排行榜** — 开发者评分排行 + 摸鱼指数排行
+- 📄 **PDF 输出** — 支持生成带样式的 PDF 报告（基于 reportlab）
+- 🔀 **多格式同时输出** — 一条命令同时生成 Markdown + HTML + PDF
+
 ---
 
 *项目地址：[https://clawhub.ai/Wscats/code-analysis-skills](https://clawhub.ai/Wscats/code-analysis-skills)*
 
-*技术栈：Python + GitPython + PyDriller + Radon + Jinja2 + Click*
+*技术栈：Python + GitPython + PyDriller + Radon + Jinja2 + Click + ReportLab*
 
 *开源协议：MIT -- 拿去用，拿去改，拿去看看你的团队。*

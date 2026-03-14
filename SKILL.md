@@ -112,7 +112,7 @@ python -m src.main -r /path/to/repo -o report.md
 - `src/reporters/markdown_reporter.py` — Markdown 格式报告生成器
 - `src/reporters/json_reporter.py` — JSON 格式报告生成器
 - `src/reporters/html_reporter.py` — HTML 格式报告生成器（含丰富的可视化样式）
-- `src/reporters/pdf_reporter.py` — PDF 格式报告生成器（支持 weasyprint/pdfkit/xhtml2pdf）
+- `src/reporters/pdf_reporter.py` — PDF 格式报告生成器（支持 weasyprint/pdfkit/reportlab）
 
 ### 参考文档
 
@@ -123,7 +123,7 @@ python -m src.main -r /path/to/repo -o report.md
 执行分析前需安装 Python 依赖：
 
 ```bash
-pip install gitpython pydriller radon tabulate jinja2 click xhtml2pdf
+pip install gitpython pydriller radon tabulate jinja2 click reportlab
 ```
 
 如需更高质量的 PDF 输出，可选安装：
@@ -133,6 +133,24 @@ pip install weasyprint   # 推荐，需要系统安装 cairo 库
 # 或
 pip install pdfkit       # 需要系统安装 wkhtmltopdf
 ```
+
+## ⚠️ 隐私与数据安全声明
+
+> **重要提示**：本工具会从 Git 提交历史中提取开发者个人活动数据，包括但不限于：
+> - 提交时间戳（精确到小时）
+> - 周末/深夜编码频率
+> - 个人提交频率和产出量
+> - 代码所有权归属
+> - 摸鱼指数等行为评估
+
+**使用前请务必遵守以下原则：**
+
+1. **知情同意** — 在分析他人仓库之前，必须获得相关开发者的知情同意
+2. **非惩罚性** — 分析结果**不应**直接用于绩效考核、薪酬决策或惩罚性管理
+3. **上下文理解** — 数据需结合实际工作场景理解（如架构师天然提交少，不代表产出低）
+4. **数据保护** — 生成的报告包含个人信息，应妥善保管，不应公开分享
+5. **合规性** — 使用前请确认符合所在组织的 HR 政策和当地数据保护法规（如 GDPR）
+6. **本地运行** — 本工具完全本地运行，不会向外部服务器传输任何数据
 
 ## 评估体系说明
 
@@ -175,8 +193,11 @@ pip install pdfkit       # 需要系统安装 wkhtmltopdf
 - Python 代码复杂度分析依赖 `radon` 库，仅对 `.py` 文件生效
 - 作者匹配支持模糊匹配（名称或邮箱包含关键字即可）
 - 扫描目录时默认最大深度为 5 层，避免过深递归
-- PDF 生成优先使用 weasyprint，回退到 pdfkit，最终回退到 xhtml2pdf
+- PDF 生成优先使用 weasyprint，回退到 pdfkit，最终回退到 reportlab
 - 评估结果仅基于 Git 提交历史数据，不代表开发者的全部能力
 - 摸鱼指数仅供参考，需结合实际工作场景理解
+- **本工具完全本地运行，不会向任何外部服务器发送数据**
+- **在分析团队仓库前，请务必获得相关人员知情同意**
+- **报告结果不应直接用于绩效考核或惩罚性管理决策**
 
 ... EOF
