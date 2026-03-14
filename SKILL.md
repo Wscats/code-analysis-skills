@@ -15,6 +15,8 @@ description: >
 
 # Code Analysis Skill
 
+📦 **GitHub**: [https://github.com/Wscats/code-analysis-skills](https://github.com/Wscats/code-analysis-skills)
+
 Scan specified repositories or directories containing Git repositories, analyze and compare developers' commit habits, work patterns, development efficiency, code style, code quality, and slacking index. Provide blunt, data-driven evaluations for each developer with scores, grades, strengths, weaknesses, and actionable suggestions. Output structured reports in Markdown / HTML / JSON / PDF.
 
 ## 💬 Natural Language (Recommended)

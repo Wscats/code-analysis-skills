@@ -15,6 +15,8 @@ description: >
 
 # 代码分析技能
 
+📦 **GitHub**: [https://github.com/Wscats/code-analysis-skills](https://github.com/Wscats/code-analysis-skills)
+
 扫描指定仓库或目录下所有 Git 仓库，分析并对比开发者的提交习惯、工作习惯、研发效率、代码风格、代码质量和摸鱼指数，对每个开发者进行严肃、直接的评估打分，生成结构化分析报告（支持 Markdown / HTML / JSON / PDF）。
 
 ## 💬 自然语言对话（推荐）
