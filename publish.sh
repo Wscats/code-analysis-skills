@@ -20,10 +20,10 @@ set -euo pipefail
 # logged-in account, not the slug.
 SLUG="${SLUG:-code-analysis-skills}"
 OWNER="${OWNER:-wscats}"
-VERSION="${VERSION:-v1.0.8}"
+VERSION="${VERSION:-v1.0.9}"
 NAME="${NAME:-Code Analysis Skills}"
 TAGS="${TAGS:-latest,git,code-analysis,reflection}"
-CHANGELOG="${CHANGELOG:-Structural safety overhaul: self-scope by default; cross-author analysis requires --multi-author-team-retro plus per-person --consented-author; removed env-var bypass for the consent gate; dropped composite 0-100 score, S/A/B/C/D/E/F letter band, verdict line, leaderboard and cross-author comparison tables from every output format; dropped pylint dependency; removed legacy report.md sample.}"
+CHANGELOG="${CHANGELOG:-Doc/code alignment + dead-code purge: removed -a/--author from all docs (CLI never had it after v1.0.7); documented --multi-author-team-retro and --consented-author in every README/SKILL table; updated project tree to point at cadence_signal_analyzer.py and narrator/reflection_narrator.py; deleted unused *_score intermediates (sparsity_score / trivial_score / non_code_score / late_week_skew_score / add_delete_imbalance_score / disappearance_score / low_output_score) from cadence analyzer; removed legacy 'formerly DeveloperEvaluator' callout from narrator header.}"
 
 # ─── Resolve script directory (the skill folder) ────────────────────────────
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
