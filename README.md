@@ -18,7 +18,9 @@
 - 🔒 生成的报告含个人信息，请妥善保管，不应公开分享
 - 📋 使用前请确认符合所在组织的 HR 政策和所在地的隐私 / 劳动法规（如 GDPR）
 
-CLI 与 Skill 入口都设置了硬性门槛：必须显式确认（CLI 加 `--i-have-consent`，Skill 设置 `acknowledge_usage_policy: true`，或设置 `CODE_ANALYSIS_ACK_USAGE_POLICY=1` 环境变量），否则工具直接拒绝运行。
+CLI 与 Skill 入口都设置了硬性门槛：**必须**显式确认（CLI 加 `--i-have-consent`，Skill 设置 `acknowledge_usage_policy: true`），**没有**环境变量绕过。
+
+此外，默认为 **self-scope** 模式：只分析当前本地 Git 用户自己的提交。分析他人需要额外传入 `--multi-author-team-retro` 与逐个 `--consented-author NAME`，**且任何输出都不产生排行榜、多人横向对比表、综合评分或字母等级**。
 
 ## 用法很简单
 
@@ -120,28 +122,25 @@ Total Commits: 1
 ## 也可以直接用命令行使用：
 
 ```bash
-# 自查 / 已获团队全员同意
+# 默认 self-scope：只分析当前 Git 用户自己的提交
 python -m src.main --i-have-consent -r /path/to/repo
-
-# 扫描整个目录
-python -m src.main --i-have-consent -r /path/to/projects --scan-all
 
 # 指定时间范围，生成 HTML 报告
 python -m src.main --i-have-consent -r /path/to/repo -s 2025-01-01 -u 2025-12-31 -f html -o report.html
 
 # 同时生成 Markdown + HTML + PDF
 python -m src.main --i-have-consent -r /path/to/repo -f "markdown,html,pdf" -o report
+
+# 已获全员同意的团队复盘（必须逐人列出）
+python -m src.main --i-have-consent -r /path/to/repo \
+  --multi-author-team-retro \
+  --consented-author "alice@example.com" \
+  --consented-author "bob@example.com"
 ```
 
-> 不带 `--i-have-consent` 时，工具只会打印使用提示并退出，不会进行分析。这是有意为之。
+> 不带 `--i-have-consent` 时工具只会打印使用提示并退出；不带 `--multi-author-team-retro` + `--consented-author` 时，只会分析本地 Git 用户自己。这是有意为之。
 
-生成的报告里，多人分析时会有一份**按字母顺序排列的总览**（**有意不做排行榜**）：
-
-| Author | Commits | Lines Changed | Commits/Day | Weekend % | Late Night % | Bug Fix % | Churn Rate |
-|--------|---------|---------------|-------------|-----------|-------------|-----------|------------|
-| alice | 7 | 102 | 3.5 | 100.0% | 42.9% | 0.0% | 43.7% |
-| bob | 4 | 84,226 | 1.33 | 25.0% | 0.0% | 0.0% | 0.0% |
-| reky | 3 | 27 | 1.0 | 66.7% | 33.3% | 0.0% | 3.8% |
+报告中不会出现多人横向对比表、排行榜、综合评分或字母等级。报告是以**人为单位**的文本叙述 + 各分量分项表，并且每个报告顶部都有使用政策提示。
 
 每个数字背后都有一个真实的人和真实的语境。**指标只是讨论的起点**。
 
@@ -155,15 +154,16 @@ python -m src.main --i-have-consent -r /path/to/repo -f "markdown,html,pdf" -o r
 
 如果你想用它做这些事 —— 这个工具会拒绝运行。这不是 Bug，是设计。
 
-## 🆕 v1.2.0 变更摘要
+## 🆕 v1.0.7 变更摘要
 
-- 🛡️ **使用政策硬性门槛**：CLI 必须传 `--i-have-consent`，Skill 必须设置 `acknowledge_usage_policy: true`，否则拒绝运行
-- 🪞 **重新定位为自查工具**：原"开发者评估 / 摸鱼指数"重命名为"自查摘要 / 节奏密度信号"，去除人身判断与伪科学论断
-- 📋 **alphabetical overview 替代排行榜**：所有报告中按字母排序，不再做"打分排名"
-- 🧭 **触发词收紧**：模糊触发词不再直接调用，先与用户确认意图与同意
-- ⚠️ **每份输出强制使用提示**：Markdown / HTML / PDF 报告顶部都会带使用政策提示
-- 📄 **PDF 输出** — 支持生成带样式的 PDF 报告（基于 reportlab）
-- 🔀 **多格式同时输出** — 一条命令同时生成 Markdown + HTML + PDF
+- 🛡️ **强制同意门槛（无环境变量绕过）**：CLI 必须传 `--i-have-consent`，Skill 必须传 `acknowledge_usage_policy: true`，没有环境变量起 fallback。
+- 🔒 **默认 self-scope**：默认只分析当前本地 Git 用户。分析他人需一起传 `--multi-author-team-retro` + 逐个 `--consented-author NAME`。
+- 🚫 **移除综合评分 / 字母等级 / 定论句**：报告不再产出 0–100 总分、S/A/B/C/D/E/F 字母段、类似 "top-tier contributor" 的一句话定论。
+- 🚫 **移除多人横向对比 / 排行榜**：哪怕是同意过的多人复盘模式，报告都不生成跨作者对比表。
+- 🪞 **报告重定位为叙述式自查**：原“开发者评估 / 摸鱼指数”重命名为“反思叙述 / 节奏密度信号”，去除贬损与伪科学表达。
+- ⚠️ **每份输出强制使用提示**：Markdown / HTML / PDF 报告顶部都会带使用政策提示。
+- 📄 **PDF 输出**：支持生成带样式的 PDF 报告（基于 reportlab）。
+- 🔀 **多格式同时输出**：一条命令同时生成 Markdown + HTML + PDF。
 
 ---
 

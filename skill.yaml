@@ -1,21 +1,31 @@
 name: code-analysis-skills
-version: 1.2.0
+version: 1.0.7
 description: >
-  A Git-history reflection tool. Scans repositories and produces DESCRIPTIVE
-  statistics about commit cadence, file-change patterns, code-style markers,
-  and code-quality artefacts (bug-fix commits, reverts, complexity).
+  A Git-history *self-reflection* tool. By default analyses ONLY commits
+  authored by the current local Git user; analysing other developers requires
+  a deliberate, second opt-in. Produces DESCRIPTIVE statistics about commit
+  cadence, file-change patterns, code-style markers, and code-quality
+  artefacts (bug-fix commits, reverts, complexity).
 
   Intended use: self-reflection by a developer on their own repository, or
-  opt-in, consent-based team retrospectives. Output is a narrow, biased
-  proxy — code review, design, mentoring, on-call, and operations are
-  invisible to Git history.
+  opt-in, consent-based team retrospectives where every included developer
+  is named in `consented_authors`. Output is a narrow, biased proxy — code
+  review, design, mentoring, on-call, and operations are invisible to Git
+  history.
+
+  Structural safeguards in this skill:
+    * `acknowledge_usage_policy: true` is required to run; there is NO
+      environment-variable bypass.
+    * Self-scope mode is the default; cross-author analysis requires both
+      `multi_author_team_retro: true` AND a non-empty `consented_authors`
+      list.
+    * No composite 0–100 score, no S/A/B/C/D/E/F letter band, no "verdict"
+      sentence, and no leaderboard or cross-author comparison table is
+      rendered in any output format.
 
   This tool MUST NOT be used for performance reviews, ranking individual
   workers, compensation / promotion / discipline decisions, or any form of
-  employee surveillance. The agent must only invoke this skill when the
-  user has confirmed they have informed consent from every analyzed
-  developer and accept the usage policy. Supports PDF, HTML, Markdown,
-  and JSON output.
+  employee surveillance. Supports PDF, HTML, Markdown, and JSON output.
 author: reky
 license: MIT
 acceptLicenseTerms: true
@@ -66,12 +76,25 @@ parameters:
     type: boolean
     description: >
       If true, recursively scan the repo_path directory for all .git repositories.
+      Self-scope filtering still applies inside every discovered repo.
     default: false
 
-  - name: authors
+  - name: multi_author_team_retro
+    type: boolean
+    description: >
+      Opt out of self-scope mode and run a fully-consented multi-author team
+      retrospective. Requires a non-empty `consented_authors` list. When
+      false (the default) analysers are locked to the current local Git
+      user's identity and other authors in the repository are skipped.
+    default: false
+
+  - name: consented_authors
     type: list
     description: >
-      List of author names or emails to analyze. If empty, analyze all contributors.
+      Required when `multi_author_team_retro` is true. List the name or email
+      of every developer who has given informed consent to be included in
+      the retrospective. The tool refuses to run an implicit whole-repository
+      person-level analysis: every analysed author MUST appear here.
     default: []
 
   - name: since
@@ -111,7 +134,12 @@ outputs:
     description: The generated reflection report (primary format).
   - name: metrics
     type: object
-    description: Structured metrics data for all analyzed authors. Each per-author entry carries an `interpretation_notice` that downstream consumers must surface.
+    description: >
+      Structured metrics data, ALWAYS scoped to either the current local Git
+      user (default) or the explicitly listed `consented_authors`. Each
+      per-author entry carries an `interpretation_notice` field that
+      downstream consumers must surface alongside the data. Per-author
+      results never contain a composite score, letter grade, or verdict.
   - name: reports
     type: object
-    description: Dict of all generated reports keyed by format name.
+    description: Dict of all generated reports keyed by format name. Each rendered report opens with a usage notice and never contains a leaderboard or cross-author comparison table.

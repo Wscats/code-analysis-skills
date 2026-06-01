@@ -1,16 +1,18 @@
 """
-HTML Reporter - Generates Git-history reflection reports in HTML format.
+HTML Reporter - Renders the per-developer Git-history reflection narrative
+as styled HTML.
 
-Uses Jinja2 templates for rich, styled HTML output with:
-  - Per-developer reflection summary (composite descriptive indicator,
-    supportive observations, points to consider, discussion prompts)
-  - Cadence-density signal visualization (descriptive only)
-  - Indicator bar charts
-  - Alphabetical overview tables (intentionally NOT leaderboards)
+⚠️  STRUCTURAL SAFEGUARDS
 
-Reports always carry an explicit usage notice clarifying that the output is
-a DESCRIPTIVE summary of Git history only and must NOT be used for performance
-reviews, ranking, or HR decisions.
+This reporter intentionally:
+
+  * Does NOT render any composite 0-100 score, grade band, score circle,
+    score bar, or verdict.
+  * Does NOT emit any cross-author comparison table or leaderboard.
+  * Always opens with an explicit usage notice.
+  * Stamps a SCOPE banner inside every repository section (self-scope vs.
+    consented multi-author retrospective) so readers cannot lose track of
+    what they are looking at.
 """
 
 from typing import Dict
@@ -25,20 +27,16 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code Analysis Report</title>
+    <title>Git-History Reflection Report</title>
     <style>
         :root {
             --primary: #4f46e5;
-            --primary-light: #818cf8;
             --bg: #f8fafc;
             --card-bg: #ffffff;
             --text: #1e293b;
             --text-muted: #64748b;
             --border: #e2e8f0;
-            --success: #22c55e;
             --warning: #f59e0b;
-            --danger: #ef4444;
-            --info: #3b82f6;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -48,29 +46,25 @@ HTML_TEMPLATE = """
             line-height: 1.6;
             padding: 2rem;
         }
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1024px; margin: 0 auto; }
         h1 {
-            font-size: 2rem;
+            font-size: 1.8rem;
             color: var(--primary);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
             padding-bottom: 0.5rem;
             border-bottom: 3px solid var(--primary);
         }
         h2 {
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             margin: 2rem 0 1rem;
             padding: 0.5rem 1rem;
             background: var(--primary);
             color: white;
             border-radius: 8px;
         }
-        h3 {
-            font-size: 1.2rem;
-            color: var(--primary);
-            margin: 1.5rem 0 0.5rem;
-        }
+        h3 { font-size: 1.15rem; color: var(--primary); margin: 1.5rem 0 0.5rem; }
         h4 {
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: var(--text-muted);
             margin: 1rem 0 0.5rem;
             text-transform: uppercase;
@@ -80,158 +74,53 @@ HTML_TEMPLATE = """
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 0.5rem 0 1rem;
-        }
+        table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
         th, td {
-            padding: 0.6rem 1rem;
+            padding: 0.5rem 0.85rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
         }
         th {
             background: var(--bg);
             font-weight: 600;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-muted);
         }
-        tr:hover { background: #f1f5f9; }
-        .metric-value { font-weight: 600; color: var(--primary); }
-        .comparison-table th { background: var(--primary); color: white; }
-        .comparison-table tr:nth-child(even) { background: #f8fafc; }
-        .badge {
-            display: inline-block;
-            padding: 0.15rem 0.5rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .badge-good { background: #dcfce7; color: #166534; }
-        .badge-warn { background: #fef3c7; color: #92400e; }
-        .badge-bad { background: #fee2e2; color: #991b1b; }
-        .badge-info { background: #dbeafe; color: #1e40af; }
-
-        /* Evaluation styles */
-        .eval-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-        .score-circle {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: white;
-            flex-shrink: 0;
-        }
-        .score-s { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-        .score-a { background: linear-gradient(135deg, #22c55e, #16a34a); }
-        .score-b { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-        .score-c { background: linear-gradient(135deg, #f59e0b, #d97706); }
-        .score-d { background: linear-gradient(135deg, #f97316, #ea580c); }
-        .score-e { background: linear-gradient(135deg, #ef4444, #dc2626); }
-        .score-f { background: linear-gradient(135deg, #991b1b, #7f1d1d); }
-        .grade-label {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-left: 0.5rem;
-        }
-        .verdict {
-            font-style: italic;
-            color: var(--text-muted);
-            margin: 0.5rem 0 1rem;
-            padding: 0.5rem 1rem;
-            border-left: 4px solid var(--primary);
+        .scope-banner {
             background: #f1f5f9;
+            border-left: 4px solid var(--primary);
+            padding: 0.65rem 1rem;
             border-radius: 0 8px 8px 0;
+            margin: 0.5rem 0 1.25rem;
+            color: var(--text);
+            font-size: 0.9rem;
         }
-        .score-bar-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        .obs-item   { color: #166534; margin: 0.3rem 0; }
+        .point-item { color: #991b1b; margin: 0.3rem 0; }
+        .prompt-item { color: #1e40af; margin: 0.3rem 0; }
+        .obs-item::before    { content: "✅ "; }
+        .point-item::before  { content: "🔎 "; }
+        .prompt-item::before { content: "💡 "; }
+        .interpretation-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 0.75rem;
+            font-style: italic;
         }
-        .score-bar {
-            height: 12px;
-            border-radius: 6px;
-            background: #e2e8f0;
-            flex: 1;
-            max-width: 200px;
-            overflow: hidden;
-        }
-        .score-bar-fill {
-            height: 100%;
-            border-radius: 6px;
-            transition: width 0.3s ease;
-        }
-        .fill-high { background: linear-gradient(90deg, #22c55e, #16a34a); }
-        .fill-mid { background: linear-gradient(90deg, #f59e0b, #d97706); }
-        .fill-low { background: linear-gradient(90deg, #ef4444, #dc2626); }
-
-        .strength-item { color: #166534; margin: 0.3rem 0; }
-        .weakness-item { color: #991b1b; margin: 0.3rem 0; }
-        .suggestion-item { color: #1e40af; margin: 0.3rem 0; }
-
-        .strength-item::before { content: "✅ "; }
-        .weakness-item::before { content: "❌ "; }
-        .suggestion-item::before { content: "💡 "; }
-
-        /* Slacking Index */
-        .slacking-meter {
-            width: 100%;
-            height: 30px;
-            background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
-            border-radius: 15px;
-            position: relative;
-            margin: 1rem 0;
-        }
-        .slacking-indicator {
-            position: absolute;
-            top: -5px;
-            width: 20px;
-            height: 40px;
-            background: white;
-            border: 3px solid #1e293b;
-            border-radius: 4px;
-            transform: translateX(-50%);
-        }
-        .slacking-label {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin: 0.5rem 0;
-        }
-
-        /* Leaderboard */
-        .leaderboard-rank {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-        .rank-1 { color: #f59e0b; }
-        .rank-2 { color: #94a3b8; }
-        .rank-3 { color: #b45309; }
-
         footer {
             text-align: center;
             margin-top: 3rem;
             padding-top: 1rem;
             border-top: 1px solid var(--border);
             color: var(--text-muted);
-            font-size: 0.875rem;
+            font-size: 0.85rem;
         }
-
         @media print {
             body { padding: 0.5rem; }
             .card { break-inside: avoid; }
@@ -241,30 +130,50 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>📊 Git-History Reflection Report</h1>
+        <h1>🪞 Git-History Reflection Report</h1>
 
         <div class="card" style="border-left: 6px solid var(--warning); background: #fffbeb;">
             <h3 style="color: #92400e; margin-top: 0">⚠️ Usage notice — please read first</h3>
             <p>
                 This report is a <strong>descriptive summary of Git history only</strong>.
-                It does <strong>not</strong> measure productivity, engagement, or the value of any
-                individual’s contribution. Code review, design, mentoring, on-call, ops,
-                and many other contributions are invisible to Git history.
+                It does <strong>not</strong> measure productivity, engagement, or the value
+                of any individual's contribution. Code review, design, mentoring, on-call,
+                ops, and many other contributions are invisible to Git history.
             </p>
             <p>
                 <strong>Do not</strong> use this report for performance evaluation, ranking,
-                compensation, promotion, discipline, or any HR decision. Run it only with
-                the <strong>informed consent</strong> of every analyzed developer, and treat findings
-                as <strong>discussion prompts, not verdicts</strong>.
+                compensation, promotion, discipline, or any HR decision. Run it only with the
+                <strong>informed consent</strong> of every analyzed developer, and treat
+                findings as <strong>personal reflection prompts, not verdicts</strong>.
             </p>
         </div>
 
         {% for repo_name, repo_metrics in metrics.items() %}
         <h2>📁 {{ repo_name }}</h2>
 
+        {% set scope = repo_metrics.get('_scope', {}) %}
+        {% if scope.get('mode') == 'self_scope' %}
+        <div class="scope-banner">
+            🔒 <strong>Scope: self-reflection only.</strong> Analysis is locked to the
+            local Git user (<code>{{ scope.filters | join(' / ') }}</code>). Other authors
+            in the repository are not analysed.
+        </div>
+        {% elif scope.get('mode') == 'team_retro' %}
+        <div class="scope-banner">
+            👥 <strong>Scope: consented team retrospective.</strong> Caller has explicitly
+            asserted informed consent from every listed author:
+            {% for a in scope.filters %}<code>{{ a }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+        </div>
+        {% else %}
+        <div class="scope-banner">
+            ℹ️ <strong>Scope: unspecified.</strong> Treat this report with extra caution
+            and verify the consent basis before sharing.
+        </div>
+        {% endif %}
+
         {% set all_authors = [] %}
         {% for key, analyzer_data in repo_metrics.items() %}
-            {% if key != 'evaluations' and analyzer_data is mapping %}
+            {% if key not in ('evaluations', '_scope') and analyzer_data is mapping %}
                 {% for author in analyzer_data.keys() %}
                     {% if author not in all_authors %}
                         {% if all_authors.append(author) %}{% endif %}
@@ -277,111 +186,55 @@ HTML_TEMPLATE = """
         <div class="card">
             <h3>👤 {{ author }}</h3>
 
-            {# ── Reflection Summary ── #}
+            {# ── Personal Reflection Narrative ── #}
             {% set ev = repo_metrics.get('evaluations', {}).get(author, {}) %}
             {% if ev %}
-            <h4>🪞 Reflection Summary (descriptive indicators)</h4>
-            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0.75rem;">
-                Descriptive Git-history indicators — not a performance review. Read with full context.
+            <h4>🪞 Personal Reflection Narrative</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0.75rem;">
+                Descriptive observations only. Not a score, not a grade, not a verdict.
             </p>
-            <div class="eval-header">
-                <div class="score-circle score-{{ ev.grade | lower }}">
-                    {{ ev.overall_score }}
-                </div>
-                <div>
-                    <span class="grade-label">{{ ev.grade }}</span>
-                    <div class="verdict">{{ ev.verdict }}</div>
-                </div>
-            </div>
 
-            {# Dimension score bars #}
-            <table>
-                <tr><th>Dimension</th><th>Score</th><th>Bar</th></tr>
-                {% set dim_names = {
-                    'commit_discipline': '📝 Commit Discipline',
-                    'work_consistency': '⏰ Work Consistency',
-                    'efficiency': '🚀 Efficiency',
-                    'code_quality': '🔍 Code Quality',
-                    'code_style': '🎨 Code Style',
-                    'engagement': '💪 Engagement'
-                } %}
-                {% for dim, score in ev.get('dimension_scores', {}).items() %}
-                <tr>
-                    <td>{{ dim_names.get(dim, dim) }}</td>
-                    <td class="metric-value">{{ "%.0f" | format(score) }}/100</td>
-                    <td>
-                        <div class="score-bar-container">
-                            <div class="score-bar">
-                                <div class="score-bar-fill {% if score >= 70 %}fill-high{% elif score >= 40 %}fill-mid{% else %}fill-low{% endif %}"
-                                     style="width: {{ score }}%"></div>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
-
-            {# Supportive observations #}
             {% if ev.strengths %}
             <h4 style="color: #166534">Supportive observations</h4>
-            {% for s in ev.strengths %}
-            <div class="strength-item">{{ s }}</div>
-            {% endfor %}
+            {% for s in ev.strengths %}<div class="obs-item">{{ s }}</div>{% endfor %}
             {% endif %}
 
-            {# Points to consider (neutral) #}
             {% if ev.weaknesses %}
             <h4 style="color: #991b1b; margin-top: 1rem">Points to consider (with context)</h4>
-            {% for w in ev.weaknesses %}
-            <div class="weakness-item">{{ w }}</div>
-            {% endfor %}
+            {% for w in ev.weaknesses %}<div class="point-item">{{ w }}</div>{% endfor %}
             {% endif %}
 
-            {# Discussion prompts #}
             {% if ev.suggestions %}
-            <h4 style="color: #1e40af; margin-top: 1rem">Discussion prompts</h4>
-            {% for sg in ev.suggestions %}
-            <div class="suggestion-item">{{ sg }}</div>
-            {% endfor %}
+            <h4 style="color: #1e40af; margin-top: 1rem">Reflection prompts</h4>
+            {% for sg in ev.suggestions %}<div class="prompt-item">{{ sg }}</div>{% endfor %}
             {% endif %}
 
             {% if ev.interpretation_notice %}
-            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.75rem; font-style: italic;">
-                ℹ️ {{ ev.interpretation_notice }}
-            </p>
+            <p class="interpretation-notice">ℹ️ {{ ev.interpretation_notice }}</p>
             {% endif %}
             {% endif %}
 
-            {# ── Cadence-density signals (descriptive only) ── #}
+            {# ── Commit-cadence component values (descriptive only) ── #}
             {% set sl = repo_metrics.get('slacking', {}).get(author, {}) %}
             {% if sl %}
-            <h4>📉 Cadence-density signals (descriptive only)</h4>
-            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0.5rem;">
-                A summary of how sparse / bursty / low-volume the Git activity
-                looks. <strong>Not</strong> a productivity or engagement measure.
-                Many legitimate work patterns produce sparse cadence (architecture,
-                code review, on-call, time-off).
+            <h4>📉 Commit-cadence component values (descriptive only)</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0.5rem;">
+                How sparse / bursty / low-volume the Git activity looks. <strong>Not</strong>
+                a productivity or engagement measure. Many legitimate work patterns produce
+                sparse cadence (architecture, code review, on-call, time-off). No single
+                composite score is rendered; consider each component on its own.
             </p>
-            <div class="slacking-label">
-                {{ sl.slacking_index }}/100 —
-                {{ sl.cadence_label or sl.slacking_level }}
-                / {{ sl.cadence_label_cn or sl.slacking_level_cn }}
-            </div>
-            <div class="slacking-meter">
-                <div class="slacking-indicator" style="left: {{ sl.slacking_index }}%"></div>
-            </div>
             <table>
-                <tr><th>Signal</th><th>Value</th></tr>
-                <tr><td>Activity Ratio</td><td>{{ "%.1f%%" | format(sl.activity_ratio * 100) }}</td></tr>
-                <tr><td>Trivial-change Ratio</td><td>{{ "%.1f%%" | format(sl.trivial_commit_ratio * 100) }}</td></tr>
-                <tr><td>Long-gap Ratio</td><td>{{ "%.1f%%" | format(sl.large_gap_ratio * 100) }}</td></tr>
-                <tr><td>Lines/Active Day</td><td>{{ sl.lines_per_active_day }}</td></tr>
-                <tr><td>Non-code-only Commit Ratio</td><td>{{ "%.1f%%" | format(sl.non_code_commit_ratio * 100) }}</td></tr>
+                <tr><th>Component</th><th>Value</th></tr>
+                <tr><td>Activity ratio</td><td>{{ "%.1f%%" | format(sl.activity_ratio * 100) }}</td></tr>
+                <tr><td>Trivial-change ratio</td><td>{{ "%.1f%%" | format(sl.trivial_commit_ratio * 100) }}</td></tr>
+                <tr><td>Long-gap ratio (&gt;72h)</td><td>{{ "%.1f%%" | format(sl.large_gap_ratio * 100) }}</td></tr>
+                <tr><td>Avg gap (hours)</td><td>{{ sl.avg_gap_hours }}</td></tr>
+                <tr><td>Lines / active day</td><td>{{ sl.lines_per_active_day }}</td></tr>
+                <tr><td>Non-code-only commit ratio</td><td>{{ "%.1f%%" | format(sl.non_code_commit_ratio * 100) }}</td></tr>
             </table>
             {% if sl.interpretation_notice %}
-            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem; font-style: italic;">
-                ℹ️ {{ sl.interpretation_notice }}
-            </p>
+            <p class="interpretation-notice">ℹ️ {{ sl.interpretation_notice }}</p>
             {% endif %}
             {% endif %}
 
@@ -391,90 +244,82 @@ HTML_TEMPLATE = """
             <h4>📝 Commit Patterns</h4>
             <table>
                 <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Total Commits</td><td class="metric-value">{{ cd.total_commits }}</td></tr>
-                <tr><td>Merge Ratio</td><td>{{ "%.1f%%" | format(cd.merge_ratio * 100) }}</td></tr>
-                <tr><td>Active Span</td><td>{{ cd.active_span_days }} days</td></tr>
-                <tr><td>Avg Commits/Day</td><td class="metric-value">{{ cd.avg_commits_per_active_day }}</td></tr>
-                <tr><td>Avg Lines Added</td><td>{{ cd.avg_lines_added }}</td></tr>
-                <tr><td>Avg Lines Deleted</td><td>{{ cd.avg_lines_deleted }}</td></tr>
-                <tr><td>Total Lines Added</td><td>{{ "{:,}".format(cd.total_lines_added) }}</td></tr>
-                <tr><td>Total Lines Deleted</td><td>{{ "{:,}".format(cd.total_lines_deleted) }}</td></tr>
+                <tr><td>Total commits</td><td>{{ cd.total_commits }}</td></tr>
+                <tr><td>Merge ratio</td><td>{{ "%.1f%%" | format(cd.merge_ratio * 100) }}</td></tr>
+                <tr><td>Active span</td><td>{{ cd.active_span_days }} days</td></tr>
+                <tr><td>Avg commits / active day</td><td>{{ cd.avg_commits_per_active_day }}</td></tr>
+                <tr><td>Avg lines added</td><td>{{ cd.avg_lines_added }}</td></tr>
+                <tr><td>Avg lines deleted</td><td>{{ cd.avg_lines_deleted }}</td></tr>
+                <tr><td>Total lines added</td><td>{{ "{:,}".format(cd.total_lines_added) }}</td></tr>
+                <tr><td>Total lines deleted</td><td>{{ "{:,}".format(cd.total_lines_deleted) }}</td></tr>
             </table>
             {% endif %}
 
-            {# ── Work Habits ── #}
+            {# ── Commit timestamp distribution ── #}
             {% set hd = repo_metrics.get('work_habits', {}).get(author, {}) %}
             {% if hd %}
-            <h4>⏰ Work Habits</h4>
+            <h4>⏰ Commit timestamp distribution</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0.5rem;">
+                Reflects when commits were authored, not when the developer was working /
+                resting. Time-zone settings, batched pushes, and squash merges can distort
+                these numbers.
+            </p>
             <table>
                 <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Peak Hour</td><td class="metric-value">{{ hd.peak_hour }}:00</td></tr>
-                <tr><td>Weekend Ratio</td><td>{{ "%.1f%%" | format(hd.weekend_ratio * 100) }}</td></tr>
-                <tr><td>Late Night Ratio</td><td>
-                    {{ "%.1f%%" | format(hd.late_night_ratio * 100) }}
-                    {% if hd.late_night_ratio > 0.3 %}
-                        <span class="badge badge-warn">High</span>
-                    {% endif %}
-                </td></tr>
-                <tr><td>Longest Streak</td><td>{{ hd.longest_streak_days }} days</td></tr>
-                <tr><td>Avg Gap</td><td>{{ hd.avg_gap_between_commits_hours }} hrs</td></tr>
+                <tr><td>Peak hour</td><td>{{ hd.peak_hour }}:00</td></tr>
+                <tr><td>Weekend ratio</td><td>{{ "%.1f%%" | format(hd.weekend_ratio * 100) }}</td></tr>
+                <tr><td>Late-night ratio</td><td>{{ "%.1f%%" | format(hd.late_night_ratio * 100) }}</td></tr>
+                <tr><td>Longest streak</td><td>{{ hd.longest_streak_days }} days</td></tr>
+                <tr><td>Avg gap</td><td>{{ hd.avg_gap_between_commits_hours }} hrs</td></tr>
             </table>
+            {% if hd.interpretation_notice %}
+            <p class="interpretation-notice">ℹ️ {{ hd.interpretation_notice }}</p>
+            {% endif %}
             {% endif %}
 
-            {# ── Efficiency ── #}
+            {# ── Change patterns ── #}
             {% set ed = repo_metrics.get('efficiency', {}).get(author, {}) %}
             {% if ed %}
-            <h4>🚀 Efficiency</h4>
+            <h4>🚀 Change patterns (descriptive)</h4>
             <table>
                 <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Churn Rate</td><td>{{ "%.1f%%" | format(ed.churn_rate * 100) }}</td></tr>
-                <tr><td>Rework Ratio</td><td>
-                    {{ "%.1f%%" | format(ed.rework_ratio * 100) }}
-                    {% if ed.rework_ratio > 0.3 %}
-                        <span class="badge badge-warn">High Rework</span>
-                    {% endif %}
-                </td></tr>
-                <tr><td>Lines/Commit</td><td>{{ ed.lines_per_commit }}</td></tr>
-                <tr><td>Files Touched</td><td>{{ ed.unique_files_touched }}</td></tr>
-                <tr><td>Ownership Ratio</td><td>{{ "%.1f%%" | format(ed.ownership_ratio * 100) }}</td></tr>
-                <tr><td>Bus Factor</td><td>{{ ed.repo_avg_bus_factor }}</td></tr>
+                <tr><td>Churn rate</td><td>{{ "%.1f%%" | format(ed.churn_rate * 100) }}</td></tr>
+                <tr><td>Rework ratio</td><td>{{ "%.1f%%" | format(ed.rework_ratio * 100) }}</td></tr>
+                <tr><td>Lines / commit</td><td>{{ ed.lines_per_commit }}</td></tr>
+                <tr><td>Files touched</td><td>{{ ed.unique_files_touched }}</td></tr>
+                <tr><td>Ownership ratio</td><td>{{ "%.1f%%" | format(ed.ownership_ratio * 100) }}</td></tr>
+                <tr><td>Repo-level avg bus factor</td><td>{{ ed.repo_avg_bus_factor }}</td></tr>
             </table>
+            {% if ed.interpretation_notice %}
+            <p class="interpretation-notice">ℹ️ {{ ed.interpretation_notice }}</p>
+            {% endif %}
             {% endif %}
 
-            {# ── Code Style ── #}
+            {# ── Code-style markers ── #}
             {% set sd = repo_metrics.get('code_style', {}).get(author, {}) %}
             {% if sd %}
-            <h4>🎨 Code Style</h4>
+            <h4>🎨 Code-style markers</h4>
             <table>
                 <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Conventional Commit Ratio</td><td>{{ "%.1f%%" | format(sd.conventional_commit_ratio * 100) }}</td></tr>
-                <tr><td>Issue Reference Ratio</td><td>{{ "%.1f%%" | format(sd.issue_reference_ratio * 100) }}</td></tr>
-                <tr><td>Avg Change Size</td><td>{{ sd.avg_change_size_lines }} lines</td></tr>
+                <tr><td>Conventional Commits ratio</td><td>{{ "%.1f%%" | format(sd.conventional_commit_ratio * 100) }}</td></tr>
+                <tr><td>Issue-reference ratio</td><td>{{ "%.1f%%" | format(sd.issue_reference_ratio * 100) }}</td></tr>
+                <tr><td>Avg change size</td><td>{{ sd.avg_change_size_lines }} lines</td></tr>
             </table>
             {% endif %}
 
-            {# ── Code Quality ── #}
+            {# ── Code-quality artefacts ── #}
             {% set qd = repo_metrics.get('code_quality', {}).get(author, {}) %}
             {% if qd %}
-            <h4>🔍 Code Quality</h4>
+            <h4>🔍 Code-quality artefacts</h4>
             <table>
                 <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Bug Fix Ratio</td><td>
-                    {{ "%.1f%%" | format(qd.bug_fix_ratio * 100) }}
-                    {% if qd.bug_fix_ratio > 0.5 %}
-                        <span class="badge badge-bad">High</span>
-                    {% elif qd.bug_fix_ratio > 0.3 %}
-                        <span class="badge badge-warn">Moderate</span>
-                    {% else %}
-                        <span class="badge badge-good">Low</span>
-                    {% endif %}
-                </td></tr>
-                <tr><td>Revert Ratio</td><td>{{ "%.1f%%" | format(qd.revert_ratio * 100) }}</td></tr>
-                <tr><td>Large Commit Ratio</td><td>{{ "%.1f%%" | format(qd.large_commit_ratio * 100) }}</td></tr>
-                <tr><td>Test Modification Ratio</td><td>{{ "%.1f%%" | format(qd.test_modification_ratio * 100) }}</td></tr>
-                <tr><td>Avg Commit Size</td><td>{{ qd.avg_commit_size }} lines</td></tr>
+                <tr><td>Bug-fix ratio</td><td>{{ "%.1f%%" | format(qd.bug_fix_ratio * 100) }}</td></tr>
+                <tr><td>Revert ratio</td><td>{{ "%.1f%%" | format(qd.revert_ratio * 100) }}</td></tr>
+                <tr><td>Large-commit ratio</td><td>{{ "%.1f%%" | format(qd.large_commit_ratio * 100) }}</td></tr>
+                <tr><td>Test-modification ratio</td><td>{{ "%.1f%%" | format(qd.test_modification_ratio * 100) }}</td></tr>
+                <tr><td>Avg commit size</td><td>{{ qd.avg_commit_size }} lines</td></tr>
                 {% if qd.avg_python_complexity > 0 %}
-                <tr><td>Avg Python Complexity</td><td>{{ qd.avg_python_complexity }}</td></tr>
+                <tr><td>Avg Python complexity</td><td>{{ qd.avg_python_complexity }}</td></tr>
                 {% endif %}
             </table>
             {% endif %}
@@ -482,64 +327,9 @@ HTML_TEMPLATE = """
         {% endfor %}
         {% endfor %}
 
-        {# ── Leaderboard ── #}
-        {% set has_evals = false %}
-        {% for repo_name, repo_metrics in metrics.items() %}
-            {% if repo_metrics.get('evaluations') %}
-                {% set has_evals = true %}
-            {% endif %}
-        {% endfor %}
-
-        {% for repo_name, repo_metrics in metrics.items() %}
-        {% if repo_metrics.get('evaluations') %}
-        <h2>📋 Composite-Indicator Overview</h2>
-        <div class="card">
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">
-                Descriptive Git-history indicators per author. <strong>Not</strong> a ranking,
-                performance review, or comparison of human worth. Sorted alphabetically &mdash;
-                please do not re-order this table to create a ranking out of context.
-            </p>
-            <table class="comparison-table">
-                <tr><th>Developer</th><th>Composite Indicator</th><th>Band</th><th>One-line summary</th></tr>
-                {% for author, ev in repo_metrics.get('evaluations', {}).items() | sort(attribute='0') %}
-                <tr>
-                    <td><strong>{{ author }}</strong></td>
-                    <td class="metric-value">{{ ev.overall_score }}</td>
-                    <td><span class="badge badge-info">{{ ev.grade }}</span></td>
-                    <td>{{ ev.verdict }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
-        {% endif %}
-
-        {# ── Cadence-density overview (alphabetical, NOT a leaderboard) ── #}
-        {% if repo_metrics.get('slacking') %}
-        <h2>📉 Cadence-Density Overview</h2>
-        <div class="card">
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">
-                Descriptive cadence-sparsity signals per author. <strong>Not</strong> a
-                productivity or engagement ranking. Many legitimate work patterns produce
-                sparse cadence (architecture, code review, on-call, time-off).
-                Sorted alphabetically.
-            </p>
-            <table class="comparison-table">
-                <tr><th>Developer</th><th>Cadence-Sparsity Indicator</th><th>Band</th><th>Lines/Active Day</th></tr>
-                {% for author, sl in repo_metrics.get('slacking', {}).items() | sort(attribute='0') %}
-                <tr>
-                    <td><strong>{{ author }}</strong></td>
-                    <td class="metric-value">{{ sl.slacking_index }}/100</td>
-                    <td>{{ sl.cadence_label or sl.slacking_level }}</td>
-                    <td>{{ sl.lines_per_active_day }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
-        {% endif %}
-        {% endfor %}
-
         <footer>
-            Generated by <strong>Code Analysis Skills</strong> | Powered by ClawHub
+            Generated by <strong>Code Analysis Skills</strong> &middot; Git-history reflection only
+            &middot; Not for HR / ranking / surveillance use
         </footer>
     </div>
 </body>

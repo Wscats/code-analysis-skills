@@ -20,9 +20,9 @@ A **Git-history reflection report generator**. It scans Git repositories and agg
 - 🚀 **Change Indicators** — Code churn rate, rework ratio, Bus Factor (a *repository-level* risk indicator), file ownership
 - 🎨 **Code Style** — Language distribution, Conventional Commits compliance, file classification
 - 🔎 **Code Quality artefacts** — Bug-fix ratio, revert frequency, large-commit ratio, test coverage in changes, Python complexity (via radon)
-- 📉 **Cadence-Density Signals** — Composite score (0–100) describing how sparse / bursty the Git activity looks. **Not** a productivity or engagement measure.
-- 🪞 **Reflection Summary** — Composite descriptive indicator, supportive observations, points to consider with context, and discussion prompts. **Not** a grade or verdict.
-- 📋 **Multi-Developer Overview** — Alphabetical comparison table (intentionally NOT a leaderboard)
+- 📉 **Cadence-Density Signals** — Per-dimension component values describing how sparse / bursty the Git activity looks. **Not** a productivity or engagement measure, **not** a composite score.
+- 🪞 **Reflection Summary** — Supportive observations, points to consider with context, and personal reflection prompts. **No** composite score, **no** grade band, **no** verdict — by design.
+- 🔒 **Self-scope by default** — Only analyses commits authored by the current local Git user. Multi-author analysis requires an explicit second opt-in (`--multi-author-team-retro` plus `--consented-author NAME` for every included person) and never produces a leaderboard or cross-author comparison table.
 - 📄 **Multiple Output Formats** — Markdown, JSON, styled HTML, and PDF reports. Every output carries an explicit usage notice.
 
 ## 📦 Installation
@@ -172,17 +172,15 @@ code-analysis-skills/
 - Python code complexity (Cyclomatic Complexity via radon)
 
 ### 6. 📉 Cadence-Density Signals (descriptive only)
-- Composite score (0–100) describing how **sparse / concentrated** the Git activity looks
-- Component signals: cadence sparsity, trivial-change ratio, long-gap ratio, low daily volume, non-code-only commits, late-week skew, add/delete imbalance
-- Bands (**descriptive only**): Dense activity → Regular activity → Mixed cadence → Sparse cadence → Very sparse cadence
+- Per-dimension component values describing how **sparse / concentrated** the Git activity looks (cadence sparsity, trivial-change ratio, long-gap ratio, low daily volume, non-code-only commits, late-week skew, add/delete imbalance)
+- **No composite 0–100 score is exposed**, so these signals cannot be repurposed as a single "engagement number".
 
-> ⚠️ A high cadence-sparsity value does **not** mean someone is “slacking”. Architects, reviewers, on-call engineers, and people on leave naturally produce sparse cadence.
+> ⚠️ Sparse cadence does **not** mean someone is "slacking". Architects, reviewers, on-call engineers, and people on leave naturally produce sparse cadence.
 
 ### 7. 🪞 Reflection Summary
-- Composite descriptive indicator computed from six weighted dimensions (commit discipline 15% + cadence consistency 15% + change patterns 20% + code-quality artefacts 25% + style 10% + cadence density 15%)
-- Indicator bands: S / A / B / C / D / E / F (**descriptive only**, NOT a grade of the person)
-- Supportive observations, points to consider with context, and discussion prompts
-- Neutral one-line summary
+- Supportive observations, points to consider with context, and personal reflection prompts — each backed by a specific component value
+- **No composite 0–100 score, no S/A/B/C/D/E/F letter band, no "verdict" sentence** — these were removed because they invited misuse as a personal report card
+- Each per-author result carries a mandatory `interpretation_notice` field that downstream renderers surface in the report
 
 ## 🧪 Testing
 
@@ -222,7 +220,12 @@ pytest tests/test_analyzers.py
 - 🔒 Generated reports contain personal information — **store securely** and do not share publicly
 - 📋 Ensure compliance with your organization’s HR policies and local data-protection regulations (e.g., GDPR, local works-council rules)
 
-**Hard gate**: the CLI requires `--i-have-consent`, the skill requires `acknowledge_usage_policy: true`, or you can set `CODE_ANALYSIS_ACK_USAGE_POLICY=1` in the environment. Without one of these, the tool refuses to run.
+**Structural safeguards (not just disclaimers):**
+
+1. **Explicit consent flag (no env-var bypass)** — the CLI requires `--i-have-consent` and the skill entry point requires `acknowledge_usage_policy: true`. There is no environment-variable shortcut.
+2. **Self-scope by default** — without further opt-in flags, analysers are locked to the current local Git user. Other authors in the repository are skipped entirely.
+3. **Explicit multi-author opt-in** — analysing other people requires both `--multi-author-team-retro` and at least one `--consented-author NAME` entry. The tool refuses to run an implicit whole-repository person-level analysis.
+4. **No composite score, grade band, leaderboard, or cross-author comparison** is rendered in any output format, even when multiple consented authors are analysed.
 
 ## 📄 License
 

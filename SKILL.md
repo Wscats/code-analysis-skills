@@ -56,8 +56,10 @@ the agent must verify all of the following with the user:
 The agent **must refuse** the request when any of the above is unclear, and
 ask the user to confirm explicitly. The CLI / skill entry point also enforces
 this with a hard gate (`--i-have-consent` flag or
-`acknowledge_usage_policy: true` parameter, or the
-`CODE_ANALYSIS_ACK_USAGE_POLICY=1` environment variable).
+`acknowledge_usage_policy: true` parameter). **There is no environment-variable
+bypass.** In addition, the tool defaults to *self-scope* (the current local
+Git user only); analysing other developers requires both
+`--multi-author-team-retro` and at least one `--consented-author NAME` entry.
 
 ---
 
@@ -209,11 +211,15 @@ findings, repeat the framing each time:
 
 The report covers:
 
-1. **🪞 Reflection Summary** — Composite descriptive indicator (0–100), an
-   indicator band (S/A/B/C/D/E/F), supportive observations, points to consider
-   with context, and discussion prompts. **Not** a grade or verdict.
-2. **📉 Cadence-density signals** — How sparse / bursty the Git activity looks.
-   **Not** a productivity or engagement measure. Many legitimate work patterns
+1. **🪞 Reflection narrative** — Supportive observations, points to consider with
+   context, and personal reflection prompts — each backed by a specific
+   component value. **No composite 0–100 score, no S/A/B/C/D/E/F letter band,
+   no "verdict" sentence.** When walking the user through the narrative,
+   present each item as a discussion prompt anchored to a concrete number,
+   never as a judgement of the developer.
+2. **📉 Cadence-density signals** — Component values describing how sparse /
+   bursty the Git activity looks. **Not** a productivity or engagement
+   measure, **not** a single composite score. Many legitimate work patterns
    produce sparse cadence.
 3. **📝 Commit Patterns** — Frequency, size, merge ratio, message length.
 4. **⏰ Work Habits** — Active-hour distribution, weekend / late-night ratios,
@@ -225,9 +231,10 @@ The report covers:
 7. **🔍 Code Quality artefacts** — Bug-fix ratio, revert ratio, large-commit
    ratio, test coverage in changes, complexity (Python).
 
-For multi-developer analysis, the report also includes an **alphabetical
-overview** (intentionally not a leaderboard). Do not present these tables as
-rankings to the user.
+Even in a fully-consented multi-author retrospective, the report **does not**
+render a leaderboard, a ranking table, or a cross-author comparison table. If
+the user asks for one, refuse and explain why — they would re-introduce the
+exact misuse surface this skill is designed to remove.
 
 ### Step 5: Frame the Findings as Prompts, Not Verdicts
 
@@ -299,45 +306,47 @@ When discussing per-developer results, always:
 7. **Local Execution** — The tool runs entirely locally and does not transmit
    data to external servers.
 
-## Composite Indicator (descriptive bands, NOT a grade)
+## What the output is — and is NOT
 
-The composite indicator is a *descriptive* roll-up of Git-history dimensions.
-It is **not** a measure of human worth, capability, or performance.
+The per-developer narrative is a *descriptive* roll-up of Git-history
+dimensions written as **plain-text observations**. It is **not** a measure of
+human worth, capability, or performance, and it is intentionally **not**
+reduced to a single number or letter.
 
-| Band | Indicator Range | Meaning (descriptive only) |
-|------|-----------------|----------------------------|
-| S | 90–100 | Most Git-history dimensions look healthy in this sample. |
-| A | 80–89  | Most dimensions look healthy; minor things to discuss. |
-| B | 70–79  | Healthy on most dimensions; a few worth a 1:1 chat. |
-| C | 60–69  | Mixed picture; several dimensions worth discussing. |
-| D | 50–59  | Mid-range indicators; specific dimensions may warrant a 1:1. |
-| E | 35–49  | Several indicators are below typical ranges — usually points to context invisible to Git (role focus, time-off, blockers). |
-| F | 0–34   | Markedly low across many dimensions — often reflects on-call / non-coding work, time-off, or other factors invisible to Git. |
+**The output deliberately does NOT contain:**
 
-### Six Dimensions (descriptive weights)
+- a composite 0–100 score for a developer;
+- an S / A / B / C / D / E / F letter band;
+- a "verdict" or one-line judgement;
+- a leaderboard, ranking table, or cross-author comparison table.
 
-| Dimension | Weight | What It Describes |
-|-----------|--------|-------------------|
-| 📝 Commit Discipline | 15% | Commit frequency, message length, convention compliance |
-| ⏰ Cadence Consistency | 15% | Distribution of commit timestamps |
-| 🚀 Change Patterns | 20% | Churn, rework, change volume |
-| 🔍 Code Quality artefacts | 25% | Bug-fix ratio, revert ratio, test coverage in changes, complexity |
-| 🎨 Code Style markers | 10% | Conventional Commits, issue references |
-| 💪 Cadence Density | 15% | Inverse of cadence-sparsity signals |
+These were removed because, in practice, they invite reuse as a personal
+report card — exactly the misuse this skill is designed to prevent. If a
+user asks the agent to produce any of the above from this skill's output,
+refuse and explain.
 
-### Cadence-Sparsity Indicator (descriptive only)
+### Per-dimension component values (kept, with strong caveats)
 
-| Band | Indicator Range | Meaning |
-|------|-----------------|---------|
-| Dense activity | 0–20 | Frequent commits over the active span. |
-| Regular activity | 21–40 | Typical commit cadence. |
-| Mixed cadence | 41–60 | Mixed cadence with some quiet stretches. |
-| Sparse cadence | 61–80 | Many quiet stretches; signal is partial — context required. |
-| Very sparse cadence | 81–100 | Activity is concentrated in short bursts. Read with full context. |
+| Dimension | What it describes | Caveat |
+|-----------|-------------------|--------|
+| 📝 Commit Discipline | Commit frequency, message length, convention compliance | Reflects only what shows up in Git, not review or design work |
+| ⏰ Cadence Consistency | Distribution of commit timestamps | Time-zone, batched pushes, squash merges and on-call all distort it |
+| 🚀 Change Patterns | Churn, rework, change volume | High churn often reflects exploration or refactor sweeps, not low quality |
+| 🔍 Code Quality artefacts | Bug-fix ratio, revert ratio, test-file changes, complexity | Tagged labels in commit messages, not actual defect data |
+| 🎨 Code Style markers | Conventional Commits, issue references | Indicates tooling adoption, not skill |
+| 📉 Cadence Density | Inverse of long-gap signals | Architects, reviewers, on-call engineers, and people on leave naturally produce sparse cadence |
 
-> **Important**: a high cadence-sparsity value does **not** mean someone is
-> "slacking" — it just means commit activity is concentrated in time. Many
-> legitimate roles and life situations produce this pattern.
+### Cadence-Sparsity component values (descriptive only)
+
+The cadence-sparsity component values describe **how concentrated in time**
+commit activity is. They are **not** a single "engagement number". Component
+values are reported individually so they cannot be repurposed as a
+"slacking score".
+
+> **Important**: sparse cadence does **not** mean someone is "slacking". It
+> just means commit activity is concentrated in time. Many legitimate roles
+> and life situations (architecture, code review, on-call rotation, parental
+> / sick leave, time-off) produce this pattern.
 
 ## Notes
 

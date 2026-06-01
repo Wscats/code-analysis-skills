@@ -1,17 +1,24 @@
 """
-PDF Reporter - Generates Git-history reflection reports in PDF format.
+PDF Reporter - Renders the per-developer Git-history reflection narrative
+as a styled PDF.
 
-Uses reportlab for direct PDF generation with styled tables and text.
-Falls back to HTML-to-PDF conversion if weasyprint/pdfkit/xhtml2pdf is available.
+Falls back to HTML-to-PDF conversion via weasyprint / pdfkit / xhtml2pdf
+when available; otherwise uses reportlab directly.
 
-Reports always carry an explicit usage notice clarifying that the output is
-a DESCRIPTIVE summary of Git history only and must NOT be used for performance
-reviews, ranking, or HR decisions.
+⚠️  STRUCTURAL SAFEGUARDS
+
+This reporter intentionally:
+
+  * Does NOT render any composite 0-100 score, grade band, score circle,
+    or verdict.
+  * Does NOT emit any cross-author comparison table or leaderboard.
+  * Always opens with an explicit usage notice page.
+  * Stamps a SCOPE banner inside every repository section (self-scope vs.
+    consented multi-author retrospective).
 """
 
 import logging
-import os
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from src.reporters.base_reporter import BaseReporter
 
@@ -87,14 +94,17 @@ class PdfReporter(BaseReporter):
     # ─── reportlab PDF generation ─────────────────────────────────────────
 
     def _generate_with_reportlab(self, metrics: Dict, output_path: str) -> str:
-        """Generate PDF using reportlab (always available)."""
+        """Generate PDF using reportlab (always available).
+
+        Renders narrative + per-component-value tables only. NO composite
+        score, NO grade band, NO leaderboard, NO cross-author comparison.
+        """
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
         from reportlab.lib.colors import HexColor
         from reportlab.platypus import (
-            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-            PageBreak, HRFlowable,
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
         )
         from reportlab.lib import colors
 
@@ -108,89 +118,65 @@ class PdfReporter(BaseReporter):
         )
 
         styles = getSampleStyleSheet()
-
-        # Custom styles
         title_style = ParagraphStyle(
-            "CustomTitle",
-            parent=styles["Title"],
-            fontSize=22,
-            textColor=HexColor("#4f46e5"),
-            spaceAfter=12,
+            "CustomTitle", parent=styles["Title"], fontSize=22,
+            textColor=HexColor("#4f46e5"), spaceAfter=12,
         )
         h2_style = ParagraphStyle(
-            "CustomH2",
-            parent=styles["Heading2"],
-            fontSize=16,
-            textColor=HexColor("#4f46e5"),
-            spaceBefore=16,
-            spaceAfter=8,
+            "CustomH2", parent=styles["Heading2"], fontSize=16,
+            textColor=HexColor("#4f46e5"), spaceBefore=16, spaceAfter=8,
         )
         h3_style = ParagraphStyle(
-            "CustomH3",
-            parent=styles["Heading3"],
-            fontSize=13,
-            textColor=HexColor("#1e293b"),
-            spaceBefore=12,
-            spaceAfter=6,
+            "CustomH3", parent=styles["Heading3"], fontSize=13,
+            textColor=HexColor("#1e293b"), spaceBefore=12, spaceAfter=6,
         )
         h4_style = ParagraphStyle(
-            "CustomH4",
-            parent=styles["Heading4"],
-            fontSize=11,
-            textColor=HexColor("#64748b"),
-            spaceBefore=8,
-            spaceAfter=4,
+            "CustomH4", parent=styles["Heading4"], fontSize=11,
+            textColor=HexColor("#64748b"), spaceBefore=8, spaceAfter=4,
         )
         body_style = styles["Normal"]
-        strength_style = ParagraphStyle(
-            "Strength", parent=body_style, textColor=HexColor("#166534"),
+        observation_style = ParagraphStyle(
+            "Observation", parent=body_style, textColor=HexColor("#166534"),
             fontSize=9, spaceBefore=2,
         )
-        weakness_style = ParagraphStyle(
-            "Weakness", parent=body_style, textColor=HexColor("#991b1b"),
+        consideration_style = ParagraphStyle(
+            "Consideration", parent=body_style, textColor=HexColor("#991b1b"),
             fontSize=9, spaceBefore=2,
         )
-        suggestion_style = ParagraphStyle(
-            "Suggestion", parent=body_style, textColor=HexColor("#1e40af"),
+        prompt_style = ParagraphStyle(
+            "Prompt", parent=body_style, textColor=HexColor("#1e40af"),
             fontSize=9, spaceBefore=2,
         )
-        verdict_style = ParagraphStyle(
-            "Verdict", parent=body_style, textColor=HexColor("#64748b"),
-            fontSize=10, fontName="Helvetica-Oblique", spaceBefore=4, spaceAfter=8,
-            leftIndent=10, borderPadding=5,
+        notice_style = ParagraphStyle(
+            "Notice", parent=body_style, textColor=HexColor("#64748b"),
+            fontSize=9, fontName="Helvetica-Oblique",
+            spaceBefore=4, spaceAfter=8, leftIndent=10, borderPadding=5,
         )
-        score_style = ParagraphStyle(
-            "Score", parent=body_style, fontSize=14, fontName="Helvetica-Bold",
-            textColor=HexColor("#4f46e5"),
+        scope_style = ParagraphStyle(
+            "Scope", parent=body_style, textColor=HexColor("#1e293b"),
+            fontSize=10, backColor=HexColor("#f1f5f9"),
+            borderPadding=6, leftIndent=4, rightIndent=4,
+            spaceBefore=4, spaceAfter=10,
+        )
+        usage_notice_style = ParagraphStyle(
+            "UsageNotice", parent=styles["Normal"], fontSize=9,
+            textColor=HexColor("#92400e"), backColor=HexColor("#fffbeb"),
+            borderColor=HexColor("#f59e0b"), borderPadding=8, borderWidth=1,
+            leftIndent=4, rightIndent=4, spaceBefore=4, spaceAfter=10,
         )
 
         elements = []
-        elements.append(Paragraph("📊 Git-History Reflection Report", title_style))
+        elements.append(Paragraph("🪞 Git-History Reflection Report", title_style))
         elements.append(Spacer(1, 6))
-
-        usage_notice_style = ParagraphStyle(
-            "UsageNotice",
-            parent=styles["Normal"],
-            fontSize=9,
-            textColor=HexColor("#92400e"),
-            backColor=HexColor("#fffbeb"),
-            borderColor=HexColor("#f59e0b"),
-            borderPadding=8,
-            borderWidth=1,
-            leftIndent=4,
-            rightIndent=4,
-            spaceBefore=4,
-            spaceAfter=10,
-        )
         elements.append(Paragraph(
             "<b>⚠ Usage notice — please read first.</b> This report is a "
             "<b>descriptive summary of Git history only</b>. It does <b>not</b> measure "
-            "productivity, engagement, or the value of any individual’s contribution. "
+            "productivity, engagement, or the value of any individual's contribution. "
             "Code review, design, mentoring, on-call, ops, and many other contributions "
             "are invisible to Git history. <b>Do not</b> use this report for performance "
             "evaluation, ranking, compensation, promotion, discipline, or any HR decision. "
             "Run it only with the <b>informed consent</b> of every analyzed developer, "
-            "and treat findings as <b>discussion prompts, not verdicts</b>.",
+            "and treat findings as <b>personal reflection prompts, not verdicts</b>.",
             usage_notice_style,
         ))
 
@@ -198,7 +184,6 @@ class PdfReporter(BaseReporter):
         header_bg = HexColor("#f1f5f9")
 
         def make_table(headers: List[str], rows: List[List[str]]) -> Table:
-            """Build a styled table."""
             data = [headers] + rows
             t = Table(data, repeatRows=1)
             t.setStyle(TableStyle([
@@ -219,101 +204,95 @@ class PdfReporter(BaseReporter):
         for repo_name, repo_metrics in metrics.items():
             elements.append(Paragraph(f"📁 Repository: {repo_name}", h2_style))
 
+            scope = repo_metrics.get("_scope") or {}
+            mode = scope.get("mode")
+            filters = scope.get("filters") or []
+            if mode == "self_scope":
+                elements.append(Paragraph(
+                    "🔒 <b>Scope: self-reflection only.</b> Analysis is locked to "
+                    f"the local Git user (<font face='Courier'>{' / '.join(filters)}"
+                    "</font>). Other authors in the repository are not analysed.",
+                    scope_style,
+                ))
+            elif mode == "team_retro":
+                elements.append(Paragraph(
+                    "👥 <b>Scope: consented team retrospective.</b> Caller has "
+                    "explicitly asserted informed consent from every listed author: "
+                    + ", ".join(f"<font face='Courier'>{a}</font>" for a in filters)
+                    + ".",
+                    scope_style,
+                ))
+            else:
+                elements.append(Paragraph(
+                    "ℹ <b>Scope: unspecified.</b> Treat this report with extra "
+                    "caution and verify the consent basis before sharing.",
+                    scope_style,
+                ))
+
             all_authors = set()
             for key, analyzer_data in repo_metrics.items():
-                if isinstance(analyzer_data, dict) and key != "evaluations":
+                if (
+                    isinstance(analyzer_data, dict)
+                    and key not in ("evaluations", "_scope")
+                ):
                     all_authors.update(analyzer_data.keys())
 
             for author in sorted(all_authors):
                 elements.append(Paragraph(f"👤 {author}", h3_style))
 
-                # ── Reflection Summary ──
+                # ── Personal Reflection Narrative ──
                 ev = repo_metrics.get("evaluations", {}).get(author, {})
                 if ev:
-                    elements.append(Paragraph("🪞 Reflection Summary (descriptive indicators)", h4_style))
-                    score = ev.get("overall_score", 0)
-                    grade = ev.get("grade", "?")
                     elements.append(Paragraph(
-                        f"Composite Indicator: {score}/100 (Band: {grade})", score_style
+                        "🪞 Personal Reflection Narrative", h4_style
                     ))
-                    verdict = ev.get("verdict", "")
-                    if verdict:
-                        elements.append(Paragraph(verdict, verdict_style))
-
-                    # Dimension scores table
-                    dim_names = {
-                        "commit_discipline": "📝 Commit Discipline",
-                        "work_consistency": "⏰ Work Consistency",
-                        "efficiency": "🚀 Efficiency",
-                        "code_quality": "🔍 Code Quality",
-                        "code_style": "🎨 Code Style",
-                        "engagement": "💪 Engagement",
-                    }
-                    dim_rows = []
-                    for dim, s in ev.get("dimension_scores", {}).items():
-                        name = dim_names.get(dim, dim)
-                        bar = "█" * int(s / 10) + "░" * (10 - int(s / 10))
-                        dim_rows.append([name, f"{s:.0f}/100", bar])
-                    if dim_rows:
-                        elements.append(make_table(
-                            ["Dimension", "Score", "Bar"], dim_rows
-                        ))
-
-                    # Supportive observations
+                    elements.append(Paragraph(
+                        "<i>Descriptive observations only. Not a score, not a "
+                        "grade, not a verdict.</i>",
+                        notice_style,
+                    ))
                     for s in ev.get("strengths", []):
-                        elements.append(Paragraph(f"✅ {s}", strength_style))
-
+                        elements.append(Paragraph(f"✅ {s}", observation_style))
                     if ev.get("strengths"):
                         elements.append(Spacer(1, 4))
-
-                    # Points to consider (neutral)
                     for w in ev.get("weaknesses", []):
-                        elements.append(Paragraph(f"🔎 {w}", weakness_style))
-
+                        elements.append(Paragraph(f"🔎 {w}", consideration_style))
                     if ev.get("weaknesses"):
                         elements.append(Spacer(1, 4))
-
-                    # Discussion prompts
                     for sg in ev.get("suggestions", []):
-                        elements.append(Paragraph(f"💡 {sg}", suggestion_style))
-
+                        elements.append(Paragraph(f"💡 {sg}", prompt_style))
                     if ev.get("interpretation_notice"):
                         elements.append(Paragraph(
-                            f"ℹ {ev['interpretation_notice']}", verdict_style
+                            f"ℹ {ev['interpretation_notice']}", notice_style,
                         ))
-
                     elements.append(Spacer(1, 6))
 
-                # ── Cadence-density signals (descriptive only) ──
+                # ── Commit-cadence component values (descriptive only) ──
                 sl = repo_metrics.get("slacking", {}).get(author, {})
                 if sl:
                     elements.append(Paragraph(
-                        "📉 Cadence-density signals (descriptive only)", h4_style
+                        "📉 Commit-cadence component values (descriptive only)",
+                        h4_style,
                     ))
                     elements.append(Paragraph(
-                        "<i>A summary of how sparse / bursty / low-volume the Git "
-                        "activity looks. Not a productivity or engagement measure.</i>",
-                        verdict_style,
-                    ))
-                    idx = sl.get("slacking_index", 0)
-                    level = (
-                        sl.get("cadence_label")
-                        or sl.get("slacking_level", "")
-                    )
-                    elements.append(Paragraph(
-                        f"Cadence-Sparsity Indicator: {idx}/100 — {level}", score_style
+                        "<i>How sparse / bursty / low-volume the Git activity "
+                        "looks. Not a productivity or engagement measure. "
+                        "No single composite score is rendered; consider each "
+                        "component on its own.</i>",
+                        notice_style,
                     ))
                     sl_rows = [
-                        ["Activity Ratio", f"{sl.get('activity_ratio', 0):.1%}"],
-                        ["Trivial-change Ratio", f"{sl.get('trivial_commit_ratio', 0):.1%}"],
-                        ["Long-gap Ratio", f"{sl.get('large_gap_ratio', 0):.1%}"],
-                        ["Lines/Active Day", str(sl.get("lines_per_active_day", 0))],
-                        ["Non-code-only Commit Ratio", f"{sl.get('non_code_commit_ratio', 0):.1%}"],
+                        ["Activity ratio", f"{sl.get('activity_ratio', 0):.1%}"],
+                        ["Trivial-change ratio", f"{sl.get('trivial_commit_ratio', 0):.1%}"],
+                        ["Long-gap ratio (>72h)", f"{sl.get('large_gap_ratio', 0):.1%}"],
+                        ["Avg gap (hours)", str(sl.get("avg_gap_hours", 0))],
+                        ["Lines / active day", str(sl.get("lines_per_active_day", 0))],
+                        ["Non-code-only commit ratio", f"{sl.get('non_code_commit_ratio', 0):.1%}"],
                     ]
-                    elements.append(make_table(["Signal", "Value"], sl_rows))
+                    elements.append(make_table(["Component", "Value"], sl_rows))
                     if sl.get("interpretation_notice"):
                         elements.append(Paragraph(
-                            f"ℹ {sl['interpretation_notice']}", verdict_style
+                            f"ℹ {sl['interpretation_notice']}", notice_style,
                         ))
 
                 # ── Commit Patterns ──
@@ -321,57 +300,64 @@ class PdfReporter(BaseReporter):
                 if cd:
                     elements.append(Paragraph("📝 Commit Patterns", h4_style))
                     rows = [
-                        ["Total Commits", str(cd.get("total_commits", 0))],
-                        ["Merge Ratio", f"{cd.get('merge_ratio', 0):.1%}"],
-                        ["Active Span", f"{cd.get('active_span_days', 0)} days"],
-                        ["Avg Commits/Day", str(cd.get("avg_commits_per_active_day", 0))],
-                        ["Avg Lines Added", str(cd.get("avg_lines_added", 0))],
-                        ["Avg Lines Deleted", str(cd.get("avg_lines_deleted", 0))],
-                        ["Total Lines Added", f"{cd.get('total_lines_added', 0):,}"],
-                        ["Total Lines Deleted", f"{cd.get('total_lines_deleted', 0):,}"],
+                        ["Total commits", str(cd.get("total_commits", 0))],
+                        ["Merge ratio", f"{cd.get('merge_ratio', 0):.1%}"],
+                        ["Active span", f"{cd.get('active_span_days', 0)} days"],
+                        ["Avg commits / active day", str(cd.get("avg_commits_per_active_day", 0))],
+                        ["Avg lines added", str(cd.get("avg_lines_added", 0))],
+                        ["Avg lines deleted", str(cd.get("avg_lines_deleted", 0))],
+                        ["Total lines added", f"{cd.get('total_lines_added', 0):,}"],
+                        ["Total lines deleted", f"{cd.get('total_lines_deleted', 0):,}"],
                     ]
                     elements.append(make_table(["Metric", "Value"], rows))
 
-                # ── Work Habits ──
+                # ── Commit timestamp distribution ──
                 hd = repo_metrics.get("work_habits", {}).get(author, {})
                 if hd:
-                    elements.append(Paragraph("⏰ Work Habits", h4_style))
+                    elements.append(Paragraph(
+                        "⏰ Commit timestamp distribution", h4_style
+                    ))
+                    elements.append(Paragraph(
+                        "<i>Reflects when commits were authored, not when the "
+                        "developer was working / resting.</i>",
+                        notice_style,
+                    ))
                     rows = [
-                        ["Peak Hour", f"{hd.get('peak_hour', 'N/A')}:00"],
-                        ["Weekend Ratio", f"{hd.get('weekend_ratio', 0):.1%}"],
-                        ["Late Night Ratio", f"{hd.get('late_night_ratio', 0):.1%}"],
-                        ["Longest Streak", f"{hd.get('longest_streak_days', 0)} days"],
-                        ["Avg Gap", f"{hd.get('avg_gap_between_commits_hours', 0)} hrs"],
+                        ["Peak hour", f"{hd.get('peak_hour', 'N/A')}:00"],
+                        ["Weekend ratio", f"{hd.get('weekend_ratio', 0):.1%}"],
+                        ["Late-night ratio", f"{hd.get('late_night_ratio', 0):.1%}"],
+                        ["Longest streak", f"{hd.get('longest_streak_days', 0)} days"],
+                        ["Avg gap", f"{hd.get('avg_gap_between_commits_hours', 0)} hrs"],
                     ]
                     elements.append(make_table(["Metric", "Value"], rows))
 
-                # ── Efficiency ──
+                # ── Change patterns ──
                 ed = repo_metrics.get("efficiency", {}).get(author, {})
                 if ed:
-                    elements.append(Paragraph("🚀 Efficiency", h4_style))
+                    elements.append(Paragraph("🚀 Change patterns (descriptive)", h4_style))
                     rows = [
-                        ["Churn Rate", f"{ed.get('churn_rate', 0):.1%}"],
-                        ["Rework Ratio", f"{ed.get('rework_ratio', 0):.1%}"],
-                        ["Lines/Commit", str(ed.get("lines_per_commit", 0))],
-                        ["Files Touched", str(ed.get("unique_files_touched", 0))],
-                        ["Ownership Ratio", f"{ed.get('ownership_ratio', 0):.1%}"],
-                        ["Bus Factor", str(ed.get("repo_avg_bus_factor", 0))],
+                        ["Churn rate", f"{ed.get('churn_rate', 0):.1%}"],
+                        ["Rework ratio", f"{ed.get('rework_ratio', 0):.1%}"],
+                        ["Lines / commit", str(ed.get("lines_per_commit", 0))],
+                        ["Files touched", str(ed.get("unique_files_touched", 0))],
+                        ["Ownership ratio", f"{ed.get('ownership_ratio', 0):.1%}"],
+                        ["Repo-level avg bus factor", str(ed.get("repo_avg_bus_factor", 0))],
                     ]
                     elements.append(make_table(["Metric", "Value"], rows))
 
-                # ── Code Quality ──
+                # ── Code-quality artefacts ──
                 qd = repo_metrics.get("code_quality", {}).get(author, {})
                 if qd:
-                    elements.append(Paragraph("🔍 Code Quality", h4_style))
+                    elements.append(Paragraph("🔍 Code-quality artefacts", h4_style))
                     rows = [
-                        ["Bug Fix Ratio", f"{qd.get('bug_fix_ratio', 0):.1%}"],
-                        ["Revert Ratio", f"{qd.get('revert_ratio', 0):.1%}"],
-                        ["Large Commit Ratio", f"{qd.get('large_commit_ratio', 0):.1%}"],
-                        ["Test Modification Ratio", f"{qd.get('test_modification_ratio', 0):.1%}"],
-                        ["Avg Commit Size", f"{qd.get('avg_commit_size', 0)} lines"],
+                        ["Bug-fix ratio", f"{qd.get('bug_fix_ratio', 0):.1%}"],
+                        ["Revert ratio", f"{qd.get('revert_ratio', 0):.1%}"],
+                        ["Large-commit ratio", f"{qd.get('large_commit_ratio', 0):.1%}"],
+                        ["Test-modification ratio", f"{qd.get('test_modification_ratio', 0):.1%}"],
+                        ["Avg commit size", f"{qd.get('avg_commit_size', 0)} lines"],
                     ]
                     if qd.get("avg_python_complexity", 0) > 0:
-                        rows.append(["Avg Python Complexity", str(qd["avg_python_complexity"])])
+                        rows.append(["Avg Python complexity", str(qd["avg_python_complexity"])])
                     elements.append(make_table(["Metric", "Value"], rows))
 
                 elements.append(HRFlowable(
@@ -379,56 +365,9 @@ class PdfReporter(BaseReporter):
                     spaceBefore=8, spaceAfter=8,
                 ))
 
-            # ── Composite-Indicator Overview (alphabetical, NOT a leaderboard) ──
-            evals = repo_metrics.get("evaluations", {})
-            if evals and len(evals) >= 1:
-                elements.append(Paragraph("📋 Composite-Indicator Overview", h2_style))
-                elements.append(Paragraph(
-                    "<i>Descriptive Git-history indicators per author. NOT a ranking, "
-                    "performance review, or comparison of human worth. Sorted alphabetically.</i>",
-                    verdict_style,
-                ))
-                ranked = sorted(evals.items(), key=lambda x: x[0].lower())
-                lb_rows = []
-                for a, ev in ranked:
-                    lb_rows.append([
-                        a,
-                        str(ev.get("overall_score", 0)),
-                        ev.get("grade", "?"),
-                        ev.get("verdict", "")[:60],
-                    ])
-                elements.append(make_table(
-                    ["Developer", "Composite Indicator", "Band", "One-line summary"],
-                    lb_rows,
-                ))
+            # NOTE: Composite-Indicator Overview / Cadence-Density Overview
+            # leaderboards are intentionally NOT rendered.
 
-            # ── Cadence-Density Overview (alphabetical, NOT a leaderboard) ──
-            slacking = repo_metrics.get("slacking", {})
-            if slacking and len(slacking) >= 1:
-                elements.append(Paragraph("📉 Cadence-Density Overview", h2_style))
-                elements.append(Paragraph(
-                    "<i>Descriptive cadence-sparsity signals per author. NOT a productivity "
-                    "or engagement ranking. Many legitimate work patterns produce sparse "
-                    "cadence (architecture, code review, on-call, time-off). "
-                    "Sorted alphabetically.</i>",
-                    verdict_style,
-                ))
-                ranked = sorted(slacking.items(), key=lambda x: x[0].lower())
-                sl_rows = []
-                for a, sd in ranked:
-                    level = sd.get("cadence_label") or sd.get("slacking_level", "")
-                    sl_rows.append([
-                        a,
-                        f"{sd.get('slacking_index', 0)}/100",
-                        level,
-                        str(sd.get("lines_per_active_day", 0)),
-                    ])
-                elements.append(make_table(
-                    ["Developer", "Cadence-Sparsity Indicator", "Band", "Lines/Active Day"],
-                    sl_rows,
-                ))
-
-        # Build PDF
         doc.build(elements)
         logger.info("PDF generated with reportlab: %s", output_path)
         return output_path

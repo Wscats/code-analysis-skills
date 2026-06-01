@@ -1,32 +1,42 @@
 """
 Code Analysis Skills - Main Entry Point
 
-A Git-history reflection tool: scans Git repositories and produces descriptive
-statistics about commit cadence, file-change patterns, code-style markers, and
-code-quality artefacts (bug-fix commits, reverts, complexity).
+A Git-history *self-reflection* tool. Scans a single Git repository and
+produces descriptive statistics about commit cadence, file-change patterns,
+code-style markers, and code-quality artefacts (bug-fix commits, reverts,
+complexity).
 
-⚠️  IMPORTANT — INTENDED USE & LIMITATIONS
+⚠️  IMPORTANT — INTENDED USE & STRUCTURAL SAFEGUARDS
 
-This tool produces DESCRIPTIVE STATISTICS only. The output:
-  - Is a NARROW, BIASED proxy. Code review, design, mentoring, on-call,
-    operations, and many other contributions are invisible to Git history.
-  - MUST NOT be used for performance reviews, ranking, compensation, promotion,
-    discipline, or any other HR decision.
-  - MUST be run only with the INFORMED CONSENT of every developer whose Git
-    history is analyzed.
-  - MUST be interpreted in context (role, time-zone, on-call, time-off, etc.).
+This tool is structurally biased toward *self-reflection*:
 
-Outputs: Markdown, JSON, HTML, PDF — each carrying an explicit usage notice.
+  * The default mode is **self-scope only** — the tool reads the current Git
+    user's identity (``git config user.name`` / ``user.email``) and refuses
+    to analyse any other author unless the caller takes a deliberate, second
+    opt-in step.
+  * Multi-author analysis requires (a) the ``--i-have-consent`` flag, AND
+    (b) the ``--multi-author-team-retro`` flag, AND (c) at least one
+    ``--consented-author`` entry. The tool refuses to invoke person-level
+    analysers across a whole repository implicitly.
+  * Outputs are descriptive *narratives* and per-dimension component values.
+    There is no composite 0-100 score, no S/A/B/C/D/E/F band, and no
+    cross-author leaderboard or ranking table.
+  * Consent acknowledgement is expressed *only* through an explicit CLI flag
+    or skill parameter. There is no environment-variable bypass.
+
+The output is a NARROW, BIASED proxy. Code review, design, mentoring,
+on-call, ops, and many other contributions are invisible to Git history.
+Even with full consent, results MUST NOT be used for performance reviews,
+ranking, compensation, promotion, discipline, or any HR decision.
 """
 
-import json
 import logging
 import os
+import subprocess
 import sys
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import click
-import yaml
 
 from src.scanner import RepoScanner
 from src.analyzers.commit_analyzer import CommitAnalyzer
@@ -53,33 +63,103 @@ USAGE_NOTICE_TEXT = (
     "\n"
     "  This tool produces a DESCRIPTIVE summary of Git history only.\n"
     "  It does NOT measure productivity, engagement, or the value of any\n"
-    "  individual’s contribution. Code review, design, mentoring, on-call,\n"
+    "  individual's contribution. Code review, design, mentoring, on-call,\n"
     "  ops, and many other contributions are invisible to Git history.\n"
+    "\n"
+    "  Default mode is SELF-SCOPE ONLY: the tool only analyses commits\n"
+    "  authored by the current local Git user. Multi-author analysis is\n"
+    "  blocked unless you explicitly opt-in with --multi-author-team-retro\n"
+    "  and supply --consented-author entries for every analyzed person.\n"
     "\n"
     "  DO NOT use the output of this tool for:\n"
     "    • performance reviews, ranking, or comparison of individual workers\n"
     "    • compensation, promotion, discipline, or PIP decisions\n"
     "    • employee surveillance or monitoring of non-consenting contributors\n"
     "\n"
-    "  Run this tool only with the INFORMED CONSENT of every developer whose\n"
-    "  Git history is analyzed, and ensure compliance with applicable privacy\n"
-    "  and labor regulations (e.g., GDPR, local works-council rules).\n"
+    "  Even in a fully-consented team retrospective, the output is\n"
+    "  per-dimension narrative text (no composite score, no letter grade,\n"
+    "  no leaderboard) and remains unsuitable for HR decisions.\n"
 )
 
 
-CONSENT_ENV_VAR = "CODE_ANALYSIS_ACK_USAGE_POLICY"
+# ─── Self-scope helpers ──────────────────────────────────────────────────────
+
+
+def _detect_self_identity(repo_path: str) -> Tuple[Optional[str], Optional[str]]:
+    """Return ``(name, email)`` for the local Git user inside ``repo_path``.
+
+    Falls back to global git config if the repo has no override. Returns
+    ``(None, None)`` if neither is configured.
+    """
+    def _git_config(key: str) -> Optional[str]:
+        try:
+            out = subprocess.run(
+                ["git", "-C", repo_path, "config", "--get", key],
+                capture_output=True, text=True, check=False, timeout=5,
+            )
+            value = (out.stdout or "").strip()
+            return value or None
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    return _git_config("user.name"), _git_config("user.email")
+
+
+def _resolve_consented_authors(
+    repo_path: str,
+    multi_author_team_retro: bool,
+    consented_authors: Optional[List[str]],
+) -> Tuple[List[str], List[str]]:
+    """Decide which author filters to pass to the analysers.
+
+    Returns ``(authors_filter, refusal_reasons)``.
+    If ``refusal_reasons`` is non-empty, callers must abort the run.
+    """
+    refusal_reasons: List[str] = []
+    name, email = _detect_self_identity(repo_path)
+
+    if not multi_author_team_retro:
+        # Self-scope mode (default). Lock to the local Git user's identity.
+        if not (name or email):
+            refusal_reasons.append(
+                "Self-scope mode requires a local Git identity but none was "
+                "found (git config user.name / user.email is empty). Configure "
+                "your Git identity first, or run an explicitly consented team "
+                "retrospective with --multi-author-team-retro and "
+                "--consented-author."
+            )
+            return [], refusal_reasons
+        # Use both name and email as fuzzy filters so the analyzers only
+        # surface the current user's commits.
+        filters = [v for v in (name, email) if v]
+        return filters, []
+
+    # Multi-author retrospective mode (must be explicit).
+    if not consented_authors:
+        refusal_reasons.append(
+            "--multi-author-team-retro requires at least one "
+            "--consented-author entry. Refusing to run an implicit, "
+            "whole-repository person-level analysis."
+        )
+        return [], refusal_reasons
+
+    return list(consented_authors), []
+
+
+# ─── Orchestrator ────────────────────────────────────────────────────────────
 
 
 def run_analysis(
     repo_path: str,
     scan_all_repos: bool = False,
-    authors: Optional[list] = None,
     since: Optional[str] = None,
     until: Optional[str] = None,
     branch: Optional[str] = None,
     output_format: str = "markdown",
     output_path: Optional[str] = None,
     acknowledge_usage_policy: bool = False,
+    multi_author_team_retro: bool = False,
+    consented_authors: Optional[List[str]] = None,
 ) -> dict:
     """
     Main analysis orchestrator.
@@ -87,46 +167,74 @@ def run_analysis(
     Args:
         repo_path: Path to a Git repo or parent directory.
         scan_all_repos: Whether to recursively scan for all .git repos.
-        authors: List of author names/emails to filter. None means all.
         since: Start date in ISO format.
         until: End date in ISO format.
         branch: Branch name to analyze.
         output_format: 'json', 'markdown', 'html', or 'pdf'.
         output_path: Output file path (used for PDF generation).
-        acknowledge_usage_policy: Caller must explicitly set this to True (or
-            set the ``CODE_ANALYSIS_ACK_USAGE_POLICY=1`` environment variable)
-            to confirm they have read the usage notice and have consent from
-            every developer whose Git history will be analyzed. The tool
-            refuses to run otherwise.
+        acknowledge_usage_policy: Caller must explicitly set this to ``True``
+            via the skill parameter or ``--i-have-consent`` CLI flag. There is
+            no environment-variable bypass; the tool refuses to run otherwise.
+        multi_author_team_retro: Required to opt out of self-scope mode and
+            run a fully-consented team retrospective. When False (the default)
+            the analyzers are locked to the current local Git user's identity.
+        consented_authors: Required when ``multi_author_team_retro`` is True.
+            Must list every author (name or email) who has given informed
+            consent. The tool refuses to run an implicit whole-repo analysis.
 
     Returns:
         A dict with 'report' (formatted string) and 'metrics' (raw data).
     """
-    # Refuse to run analysis without explicit acknowledgement of the usage
-    # notice. This is intentionally a hard gate: the analyzers below extract
-    # personal Git-activity data and the project must not become a
-    # frictionless surveillance tool.
-    env_ack = os.environ.get(CONSENT_ENV_VAR, "").strip().lower() in (
-        "1", "true", "yes", "y",
-    )
-    if not (acknowledge_usage_policy or env_ack):
+    # Hard gate 1 — explicit consent acknowledgement. No env bypass.
+    if not acknowledge_usage_policy:
         logger.warning(USAGE_NOTICE_TEXT)
         logger.warning(
-            "Refusing to run: pass acknowledge_usage_policy=True (or set %s=1 "
-            "in the environment) to confirm you have informed consent from "
-            "every analyzed developer and will not use the output for HR "
-            "decisions, ranking, or surveillance.",
-            CONSENT_ENV_VAR,
+            "Refusing to run: pass acknowledge_usage_policy=True "
+            "(or --i-have-consent on the CLI) to confirm you have informed "
+            "consent from every analysed developer and will not use the "
+            "output for HR decisions, ranking, or surveillance."
         )
         return {
             "report": USAGE_NOTICE_TEXT + (
                 "\nAnalysis refused: usage policy was not acknowledged. "
-                f"Set acknowledge_usage_policy=True or {CONSENT_ENV_VAR}=1 "
+                "Set acknowledge_usage_policy=True (or pass --i-have-consent) "
                 "to proceed.\n"
             ),
             "metrics": {},
             "reports": {},
         }
+
+    # Hard gate 2 — resolve scope (self-only by default).
+    authors_filter, refusal_reasons = _resolve_consented_authors(
+        repo_path,
+        multi_author_team_retro,
+        consented_authors,
+    )
+    if refusal_reasons:
+        for reason in refusal_reasons:
+            logger.warning(reason)
+        return {
+            "report": USAGE_NOTICE_TEXT + "\nAnalysis refused:\n  - "
+            + "\n  - ".join(refusal_reasons) + "\n",
+            "metrics": {},
+            "reports": {},
+        }
+
+    if multi_author_team_retro:
+        logger.info(
+            "Running in MULTI-AUTHOR TEAM RETROSPECTIVE mode for: %s. "
+            "Caller has asserted informed consent from every listed author.",
+            ", ".join(authors_filter),
+        )
+        scope_mode = "team_retro"
+    else:
+        logger.info(
+            "Running in SELF-SCOPE mode for local Git user: %s. "
+            "Other authors in the repository will be ignored.",
+            " / ".join(authors_filter),
+        )
+        scope_mode = "self_scope"
+
     # Step 1: Discover repositories
     scanner = RepoScanner()
     if scan_all_repos:
@@ -136,7 +244,7 @@ def run_analysis(
 
     if not repos:
         logger.warning("No Git repositories found at: %s", repo_path)
-        return {"report": "No Git repositories found.", "metrics": {}}
+        return {"report": "No Git repositories found.", "metrics": {}, "reports": {}}
 
     logger.info("Found %d repository(ies) to analyze.", len(repos))
 
@@ -148,7 +256,7 @@ def run_analysis(
         logger.info("Analyzing repository: %s", repo_name)
 
         common_kwargs = dict(
-            authors=authors, since=since, until=until, branch=branch
+            authors=authors_filter, since=since, until=until, branch=branch
         )
 
         commit_analyzer = CommitAnalyzer(repo_info["path"], **common_kwargs)
@@ -167,14 +275,21 @@ def run_analysis(
             "slacking": slacking_analyzer.analyze(),
         }
 
-        # Step 2.5: Run developer evaluations
+        # Per-author narrative reflection (no composite score, no grade band).
         evaluator = DeveloperEvaluator()
         repo_metrics["evaluations"] = evaluator.evaluate(repo_metrics)
+
+        # Stamp scope metadata on every repo's metrics so reporters can
+        # render an honest provenance banner and refuse cross-author comparison
+        # rendering when running in self-scope mode.
+        repo_metrics["_scope"] = {
+            "mode": scope_mode,
+            "filters": list(authors_filter),
+        }
 
         all_metrics[repo_name] = repo_metrics
 
     # Step 3: Generate report(s)
-    # Support generating multiple formats at once
     formats_to_generate = _parse_formats(output_format)
     reports = {}
 
@@ -182,7 +297,6 @@ def run_analysis(
         reporter = _get_reporter(fmt)
 
         if fmt == "pdf":
-            # PDF needs a file path
             pdf_path = output_path or "report.pdf"
             if not pdf_path.endswith(".pdf"):
                 pdf_path = pdf_path.rsplit(".", 1)[0] + ".pdf"
@@ -192,7 +306,6 @@ def run_analysis(
         else:
             reports[fmt] = reporter.generate(all_metrics)
 
-    # Return the primary format's report
     primary_report = reports.get(formats_to_generate[0], "")
 
     return {"report": primary_report, "metrics": all_metrics, "reports": reports}
@@ -238,9 +351,6 @@ def _get_reporter(output_format: str):
 @click.option(
     "--scan-all", is_flag=True, default=False, help="Scan all .git repos recursively."
 )
-@click.option(
-    "--author", "-a", multiple=True, help="Author name/email to analyze (repeatable)."
-)
 @click.option("--since", "-s", default=None, help="Start date (ISO format).")
 @click.option("--until", "-u", default=None, help="End date (ISO format).")
 @click.option("--branch", "-b", default=None, help="Branch to analyze.")
@@ -258,72 +368,97 @@ def _get_reporter(output_format: str):
     is_flag=True,
     default=False,
     help=(
-        "Required. By passing this flag you confirm that (1) you have read the "
-        "usage notice, (2) you have informed consent from every developer whose "
-        "Git history will be analyzed, and (3) you will NOT use the output for "
-        "performance reviews, ranking, compensation, discipline, surveillance, "
-        "or any HR decision. Without this flag the tool refuses to run."
+        "REQUIRED. Confirms (1) you have read the usage notice, (2) you have "
+        "informed consent from every developer whose Git history will be "
+        "analyzed, and (3) you will NOT use the output for performance "
+        "reviews, ranking, compensation, discipline, surveillance, or any HR "
+        "decision. There is no environment-variable bypass; without this "
+        "explicit flag the tool refuses to run."
     ),
 )
-def cli(repo_path, scan_all, author, since, until, branch, output_format, output, acknowledge_usage_policy):
-    """Code Analysis Skills - Generate a Git-history reflection report.
+@click.option(
+    "--multi-author-team-retro",
+    is_flag=True,
+    default=False,
+    help=(
+        "Opt out of self-scope mode and run a fully-consented multi-author "
+        "team retrospective. Requires at least one --consented-author entry. "
+        "Without this flag the tool runs in self-scope mode and only analyses "
+        "commits authored by the current local Git user."
+    ),
+)
+@click.option(
+    "--consented-author",
+    "consented_authors",
+    multiple=True,
+    default=(),
+    help=(
+        "Author name or email of a person who has given informed consent to "
+        "be included in this team retrospective. Repeatable. Required when "
+        "--multi-author-team-retro is set."
+    ),
+)
+def cli(
+    repo_path,
+    scan_all,
+    since,
+    until,
+    branch,
+    output_format,
+    output,
+    acknowledge_usage_policy,
+    multi_author_team_retro,
+    consented_authors,
+):
+    """Code Analysis Skills - Generate a Git-history self-reflection report.
 
     \b
     Usage notice:
       This tool produces a DESCRIPTIVE summary of Git history only and
       MUST NOT be used for performance reviews, ranking, compensation,
-      discipline, or any HR decision. Run only with the informed consent
-      of every analyzed developer.
+      discipline, or any HR decision.
 
-      You must pass --i-have-consent to confirm.
+      The default mode is self-scope: only commits authored by the current
+      local Git user are analysed. Use --multi-author-team-retro plus
+      --consented-author NAME (repeatable) to run a consented team
+      retrospective. You must always pass --i-have-consent.
     """
-    # Always print the usage notice to stderr, even when --i-have-consent
-    # is set, so it travels with the command output.
     click.echo(USAGE_NOTICE_TEXT, err=True)
-
-    authors_list = list(author) if author else None
 
     result = run_analysis(
         repo_path=repo_path,
         scan_all_repos=scan_all,
-        authors=authors_list,
         since=since,
         until=until,
         branch=branch,
         output_format=output_format,
         output_path=output,
         acknowledge_usage_policy=acknowledge_usage_policy,
+        multi_author_team_retro=multi_author_team_retro,
+        consented_authors=list(consented_authors) if consented_authors else None,
     )
 
     if not result.get("metrics"):
-        # Refused or empty: just print the report (which contains the
-        # refusal explanation) and exit non-zero so scripts notice.
         click.echo(result["report"])
-        sys.exit(2 if not acknowledge_usage_policy else 1)
+        sys.exit(2)
 
-    # Handle multiple output formats
     formats = _parse_formats(output_format)
 
     if len(formats) == 1 and formats[0] != "pdf":
         report_text = result["report"]
         if output:
-            ext_map = {"markdown": ".md", "json": ".json", "html": ".html"}
-            out_path = output
-            with open(out_path, "w", encoding="utf-8") as f:
+            with open(output, "w", encoding="utf-8") as f:
                 f.write(report_text)
-            click.echo(f"Report saved to: {out_path}")
+            click.echo(f"Report saved to: {output}")
         else:
             click.echo(report_text)
     else:
-        # Multiple formats: save each to a file
         base = output or "report"
         if "." in base:
             base = base.rsplit(".", 1)[0]
-
         ext_map = {"markdown": ".md", "json": ".json", "html": ".html", "pdf": ".pdf"}
         for fmt in formats:
             if fmt == "pdf":
-                # Already saved by run_analysis
                 click.echo(f"PDF saved to: {base}.pdf")
                 continue
             ext = ext_map.get(fmt, f".{fmt}")
@@ -343,24 +478,25 @@ def main(params: dict) -> dict:
 
     Args:
         params: Dict of parameters from skill.yaml. Must include
-            ``acknowledge_usage_policy: true`` (or the
-            ``CODE_ANALYSIS_ACK_USAGE_POLICY=1`` environment variable) to
-            confirm informed consent and acceptable use. The tool refuses to
-            run otherwise.
+            ``acknowledge_usage_policy: true``. Multi-author analysis also
+            requires ``multi_author_team_retro: true`` AND
+            ``consented_authors: [...]``. There is no environment-variable
+            bypass.
 
     Returns:
-        Dict with 'report' and 'metrics' outputs.
+        Dict with 'report', 'metrics' and 'reports' outputs.
     """
     return run_analysis(
         repo_path=params.get("repo_path", "."),
-        scan_all_repos=params.get("scan_all_repos", False),
-        authors=params.get("authors") or None,
+        scan_all_repos=bool(params.get("scan_all_repos", False)),
         since=params.get("since") or None,
         until=params.get("until") or None,
         branch=params.get("branch") or None,
         output_format=params.get("output_format", "markdown"),
         output_path=params.get("output_path") or None,
         acknowledge_usage_policy=bool(params.get("acknowledge_usage_policy", False)),
+        multi_author_team_retro=bool(params.get("multi_author_team_retro", False)),
+        consented_authors=params.get("consented_authors") or None,
     )
 
 
