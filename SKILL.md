@@ -140,14 +140,17 @@ python -m src.main --i-have-consent -r /path/to/repo -o report.md
 | Parameter | Short | Description | Default |
 |-----------|-------|-------------|---------|
 | `--repo-path` | `-r` | Path to Git repository or parent directory | Required |
-| `--i-have-consent` |  | Required usage-policy acknowledgement (see above) | Required |
-| `--scan-all` |  | Recursively scan all `.git` repositories | `false` |
-| `--author` | `-a` | Filter by author (repeatable) | All authors |
+| `--i-have-consent` |  | Required usage-policy acknowledgement (see above). **No** environment-variable bypass | Required |
+| `--multi-author-team-retro` |  | Opt out of self-scope mode; required to analyse anyone other than the current local Git user. Must be combined with `--consented-author` | `false` (i.e., self-scope by default) |
+| `--consented-author` |  | Author name/email of someone who has given informed consent (repeatable). **Only** the listed authors are analysed | `[]` |
+| `--scan-all` |  | Recursively scan all `.git` repositories (each repo still respects self-scope / consented-author filters) | `false` |
 | `--since` | `-s` | Start date (ISO format) | None |
 | `--until` | `-u` | End date (ISO format) | None |
 | `--branch` | `-b` | Branch to analyze | Active branch |
 | `--format` | `-f` | Output format: `markdown`, `json`, `html`, `pdf` (comma-separated for multiple) | `markdown` |
 | `--output` | `-o` | Output file path | stdout |
+
+> The skill intentionally does NOT expose a generic `--author` filter. Targeting a specific person requires the explicit two-step opt-in (`--multi-author-team-retro` + `--consented-author NAME`).
 
 ---
 
@@ -261,12 +264,12 @@ When discussing per-developer results, always:
   (descriptive only; carries usage-limitation header).
 - `src/analyzers/code_style_analyzer.py` — Code-style markers.
 - `src/analyzers/code_quality_analyzer.py` — Code-quality artefacts.
-- `src/analyzers/slacking_analyzer.py` — Cadence-density signals (legacy
-  module name kept for compatibility; renamed conceptually to *Engagement
-  Signal Analyzer*).
-- `src/evaluator/developer_evaluator.py` — Per-developer reflection report
-  generator (descriptive indicators, observations, points to consider,
-  discussion prompts; carries usage-limitation header).
+- `src/analyzers/cadence_signal_analyzer.py` — Cadence component signals.
+  Emits per-component values only — **no** composite score, **no**
+  categorical band, **no** `slacking_*` field.
+- `src/narrator/reflection_narrator.py` — Self-reflection narrative
+  builder. Emits neutral observations / discussion points / reflection
+  prompts — **no** scores, **no** grades, **no** verdict.
 - `src/reporters/markdown_reporter.py` — Markdown report generator.
 - `src/reporters/json_reporter.py` — JSON report generator.
 - `src/reporters/html_reporter.py` — HTML report generator.

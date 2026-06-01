@@ -44,8 +44,8 @@ from src.analyzers.work_habit_analyzer import WorkHabitAnalyzer
 from src.analyzers.efficiency_analyzer import EfficiencyAnalyzer
 from src.analyzers.code_style_analyzer import CodeStyleAnalyzer
 from src.analyzers.code_quality_analyzer import CodeQualityAnalyzer
-from src.analyzers.slacking_analyzer import SlackingAnalyzer
-from src.evaluator.developer_evaluator import DeveloperEvaluator
+from src.analyzers.cadence_signal_analyzer import CadenceSignalAnalyzer
+from src.narrator.reflection_narrator import ReflectionNarrator
 from src.reporters.markdown_reporter import MarkdownReporter
 from src.reporters.json_reporter import JsonReporter
 from src.reporters.html_reporter import HtmlReporter
@@ -264,7 +264,7 @@ def run_analysis(
         efficiency_analyzer = EfficiencyAnalyzer(repo_info["path"], **common_kwargs)
         code_style_analyzer = CodeStyleAnalyzer(repo_info["path"], **common_kwargs)
         code_quality_analyzer = CodeQualityAnalyzer(repo_info["path"], **common_kwargs)
-        slacking_analyzer = SlackingAnalyzer(repo_info["path"], **common_kwargs)
+        cadence_signal_analyzer = CadenceSignalAnalyzer(repo_info["path"], **common_kwargs)
 
         repo_metrics = {
             "commit_patterns": commit_analyzer.analyze(),
@@ -272,12 +272,13 @@ def run_analysis(
             "efficiency": efficiency_analyzer.analyze(),
             "code_style": code_style_analyzer.analyze(),
             "code_quality": code_quality_analyzer.analyze(),
-            "slacking": slacking_analyzer.analyze(),
+            "cadence_signals": cadence_signal_analyzer.analyze(),
         }
 
-        # Per-author narrative reflection (no composite score, no grade band).
-        evaluator = DeveloperEvaluator()
-        repo_metrics["evaluations"] = evaluator.evaluate(repo_metrics)
+        # Per-identity journal-style reflection narrative.
+        # NOT an evaluation, NOT a score, NOT a grade.
+        narrator = ReflectionNarrator()
+        repo_metrics["reflections"] = narrator.narrate(repo_metrics)
 
         # Stamp scope metadata on every repo's metrics so reporters can
         # render an honest provenance banner and refuse cross-author comparison

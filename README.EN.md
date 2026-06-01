@@ -89,14 +89,17 @@ python -m src.main --i-have-consent -r /path/to/repo -o report.md
 | Option | Description | Default |
 |---|---|---|
 | `-r, --repo` | Path to Git repo or parent directory | *(required)* |
-| `--i-have-consent` | Required. Confirms you have read the usage policy, have informed consent from every analyzed developer, and will NOT use the output for performance / ranking / HR decisions | *(required)* |
-| `--scan-all` | Recursively scan for all `.git` repos | `false` |
-| `-a, --author` | Author name/email to analyze (repeatable) | All contributors |
+| `--i-have-consent` | Required. Confirms you have read the usage policy, have informed consent from every analyzed developer, and will NOT use the output for performance / ranking / HR decisions. **No** environment-variable bypass | *(required)* |
+| `--multi-author-team-retro` | Opt out of self-scope mode and run a fully-consented team retrospective. Requires at least one `--consented-author` entry | `false` (i.e., self-scope by default) |
+| `--consented-author NAME` | Author name/email of someone who has given informed consent to be included in this retrospective (repeatable). **Only** the listed authors are analysed | `[]` (in self-scope mode, only the current local Git user is analysed) |
+| `--scan-all` | Recursively scan for all `.git` repos (each repo still respects self-scope / consented-author filters) | `false` |
 | `-s, --since` | Start date (ISO format: `YYYY-MM-DD`) | — |
 | `-u, --until` | End date (ISO format: `YYYY-MM-DD`) | — |
 | `-b, --branch` | Branch to analyze | Current branch |
 | `-f, --format` | Output format(s): `markdown`, `json`, `html`, `pdf` (comma-separated for multiple) | `markdown` |
 | `-o, --output` | Output file path (base name for multiple formats) | stdout |
+
+> **Note**: this tool intentionally does NOT expose a `-a/--author` filter. Analysing people other than the current local Git user requires the explicit two-step opt-in above (`--multi-author-team-retro` + `--consented-author NAME`).
 
 ## 📁 Project Structure
 
@@ -112,9 +115,9 @@ code-analysis-skills/
 │   │   ├── efficiency_analyzer.py  # Development efficiency analysis
 │   │   ├── code_style_analyzer.py  # Code style analysis
 │   │   ├── code_quality_analyzer.py # Code quality artefacts
-│   │   └── slacking_analyzer.py # Cadence-density signals (legacy filename kept for compatibility)
-│   ├── evaluator/
-│   │   └── developer_evaluator.py  # Reflection-summary generator (descriptive)
+│   │   └── cadence_signal_analyzer.py # Cadence component signals (no composite score, no band, no ranking)
+│   ├── narrator/
+│   │   └── reflection_narrator.py  # Self-reflection narrative builder (neutral observations / discussion points / reflection prompts; no scores)
 │   ├── reporters/
 │   │   ├── base_reporter.py    # Reporter base class
 │   │   ├── markdown_reporter.py # Markdown report generator

@@ -1,30 +1,38 @@
 """
-Per-Developer Reflection Narrative Generator (formerly DeveloperEvaluator).
+Reflection Narrator.
 
 ⚠️  IMPORTANT — INTENDED USE & STRUCTURAL SAFEGUARDS
 
-This module produces *self-reflection narrative text* for an individual
-developer based purely on their Git history. The output:
+This module produces *self-reflection narrative text* from Git history
+component values. The output:
 
   - Is a NARROW, BIASED proxy. Git history misses code review, design,
     mentoring, on-call, ops, security work, pair programming, refactor
     planning, and many other forms of contribution.
   - MUST NOT be used to evaluate, rank, discipline, promote, demote, fire,
     or compensate any employee or contributor.
-  - MUST NOT be used to compare individual developers against each other for
-    workplace decisions.
+  - MUST NOT be used to compare individuals against each other for any
+    workplace decision.
   - MUST be used only with informed consent of the analyzed developer, and
     in a non-punitive context (e.g., a developer running it on their own
     repository, or an opt-in team retrospective).
 
-Structural safeguards in this rewrite:
-  * No composite 0-100 score is produced. Per-dimension component values
-    survive (so the developer can self-introspect each axis), but they are
-    deliberately never combined into a single number.
-  * No S/A/B/C/D/E/F letter band is produced. Letter grades framed Git
-    statistics as a personal report card, which they are not.
-  * No "verdict" sentence. The output is supportive observations + points to
-    consider with context + discussion prompts. Nothing more.
+Structural safeguards:
+  * No composite 0-100 score is produced.
+  * No S/A/B/C/D/E/F letter band is produced.
+  * No "verdict" sentence is produced.
+  * Output fields are deliberately neutral:
+    ``supportive_observations`` / ``points_to_consider`` /
+    ``reflection_prompts``. Field names that frame the output as a personal
+    evaluation (e.g., ``strengths`` / ``weaknesses``) are not emitted.
+    journal-style reflection prompt.
+  * Every per-identity entry carries a mandatory ``interpretation_notice``
+    field that downstream renderers MUST surface alongside the data.
+
+The input dictionary is keyed by *consented Git identity* — either the
+local Git user (default self-scope) or one of the explicitly listed
+``consented_authors``. The orchestrator is responsible for that scoping;
+this narrator never decides on its own which identities to summarise.
 """
 
 import logging
@@ -58,34 +66,46 @@ _INTERPRETATION_NOTICE = (
 )
 
 
-class DeveloperEvaluator:
+class ReflectionNarrator:
     """
-    Generates a *self-reflection* narrative for each developer from analyzer
-    metrics. Output is intentionally framed as observations + suggestions,
-    never as a score, grade, or verdict.
+    Generates a *self-reflection* narrative from analyzer component values
+    for each consented Git identity. Output is intentionally framed as
+    journal-style reflection prompts, never as evaluation, score, grade,
+    verdict, or comparison between people.
 
-    Each developer narrative contains:
-      - Supportive observations, each backed by concrete component values
-      - Points to consider with context (no judgement language)
-      - Suggestions phrased as personal reflection prompts
-      - An always-attached ``interpretation_notice`` disclaimer
+    Each entry contains:
+      - ``supportive_observations``: items each backed by a concrete component
+        value, written so the reader can self-introspect (no comparison to
+        other developers, no personal judgement language)
+      - ``points_to_consider``: neutral, contextualised items where the
+        reader may want to ask themselves *why* a Git pattern looks the way
+        it does. Every item includes the most common alternative
+        explanations, so the entry cannot be read as a deficiency list.
+      - ``reflection_prompts``: questions phrased for personal reflection
+        only ("would smaller commits help future me?"), never as managerial
+        directives.
+      - ``interpretation_notice``: a mandatory disclaimer downstream
+        renderers must surface.
 
-    The legacy field names ``overall_score``, ``grade``, ``dimension_scores``
-    and ``verdict`` are intentionally NOT emitted by this class anymore.
-    Downstream consumers that relied on them must migrate to the narrative
-    fields above.
+    This class deliberately does NOT emit any of the following: a composite
+    overall score, a dimension-score table, a letter grade, a "verdict"
+    sentence, or fields named ``strengths`` / ``weaknesses`` / ``suggestions``.
+    Downstream consumers must use the journal-style fields above.
     """
 
-    def evaluate(self, repo_metrics: Dict) -> Dict:
+    def narrate(self, repo_metrics: Dict) -> Dict:
         """
-        Build the per-developer reflection narrative.
+        Build the per-identity self-reflection narrative.
 
         Args:
             repo_metrics: Dict with keys like 'commit_patterns', 'work_habits',
-                          'efficiency', 'code_style', 'code_quality', 'slacking'.
+                          'efficiency', 'code_style', 'code_quality',
+                          'cadence_signals'. Each is keyed by the *already
+                          consent-scoped* Git identity, as enforced upstream
+                          by the orchestrator.
 
         Returns:
-            Dict keyed by author with reflection-narrative results.
+            Dict keyed by Git identity with journal-style reflection results.
         """
         all_authors = set()
         for analyzer_data in repo_metrics.values():
@@ -99,39 +119,50 @@ class DeveloperEvaluator:
             eff = repo_metrics.get("efficiency", {}).get(author, {})
             style = repo_metrics.get("code_style", {}).get(author, {})
             quality = repo_metrics.get("code_quality", {}).get(author, {})
-            slacking = repo_metrics.get("slacking", {}).get(author, {})
+            cadence = repo_metrics.get("cadence_signals", {}).get(author, {})
 
             if not commit:
                 continue
 
-            observations = self._identify_strengths(
-                commit, habit, eff, style, quality, slacking
+            observations = self._supportive_observations(
+                commit, habit, eff, style, quality, cadence
             )
-            considerations = self._identify_weaknesses(
-                commit, habit, eff, style, quality, slacking
+            considerations = self._points_to_consider(
+                commit, habit, eff, style, quality, cadence
             )
-            suggestions = self._generate_suggestions(
-                commit, habit, eff, style, quality, slacking
+            prompts = self._reflection_prompts(
+                commit, habit, eff, style, quality, cadence
             )
 
             results[author] = {
-                # Narrative-only outputs. NO composite score, NO grade band,
-                # NO verdict. Field names that templates already render are
-                # preserved (strengths / weaknesses / suggestions); no others.
-                "strengths": observations,
-                "weaknesses": considerations,
-                "suggestions": suggestions,
+                # Journal-style outputs only. NO composite score, NO grade
+                # band, NO verdict, NO strengths/weaknesses framing.
+                "supportive_observations": observations,
+                "points_to_consider": considerations,
+                "reflection_prompts": prompts,
                 "interpretation_notice": _INTERPRETATION_NOTICE,
             }
 
         return results
 
-    # ─── Observation / Consideration / Suggestion Generators ─────────────
+    # Backwards-compatible alias — the orchestrator already calls
+    # ``narrate``; this thin alias keeps third-party imports of
+    # ``ReflectionNarrator().evaluate(...)`` from breaking, while logging a
+    # deprecation warning so legacy callers know to migrate.
+    def evaluate(self, repo_metrics: Dict) -> Dict:
+        logger.warning(
+            "ReflectionNarrator.evaluate() is a deprecated alias for "
+            "narrate(). The word 'evaluate' implies personal evaluation, "
+            "which this skill explicitly forbids."
+        )
+        return self.narrate(repo_metrics)
 
-    def _identify_strengths(
-        self, commit, habit, eff, style, quality, slacking
+    # ─── Observation / Consideration / Reflection-Prompt Generators ───
+
+    def _supportive_observations(
+        self, commit, habit, eff, style, quality, cadence
     ) -> List[str]:
-        """Identify supportive, evidence-based observations."""
+        """Surface evidence-based, non-comparative observations."""
         observations = []
 
         if commit.get("avg_commits_per_active_day", 0) >= 3:
@@ -174,8 +205,8 @@ class DeveloperEvaluator:
 
         return observations[:8]
 
-    def _identify_weaknesses(
-        self, commit, habit, eff, style, quality, slacking
+    def _points_to_consider(
+        self, commit, habit, eff, style, quality, cadence
     ) -> List[str]:
         """Surface points worth a personal reflection — neutral, specific."""
         considerations = []
@@ -267,8 +298,8 @@ class DeveloperEvaluator:
 
         return considerations[:8]
 
-    def _generate_suggestions(
-        self, commit, habit, eff, style, quality, slacking
+    def _reflection_prompts(
+        self, commit, habit, eff, style, quality, cadence
     ) -> List[str]:
         """Generate neutral, practical reflection prompts."""
         suggestions = []

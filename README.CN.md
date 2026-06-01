@@ -80,14 +80,17 @@ python -m src.main --i-have-consent -r /path/to/repo -o report.md
 | 参数 | 说明 | 默认值 |
 |---|---|---|
 | `-r, --repo` | Git 仓库或父目录路径 | *（必填）* |
-| `--i-have-consent` | 必填。确认你已读过使用政策、获得每位被分析开发者的知情同意，并不会用于绩效 / 排名 / HR 决策 | *（必填）* |
-| `--scan-all` | 递归扫描所有 `.git` 仓库 | `false` |
-| `-a, --author` | 要分析的作者名/邮箱（可重复指定） | 所有贡献者 |
+| `--i-have-consent` | 必填。确认你已读过使用政策、获得每位被分析开发者的知情同意，并不会用于绩效 / 排名 / HR 决策。**没有**环境变量绕过 | *（必填）* |
+| `--multi-author-team-retro` | 退出 self-scope 模式，运行已获全员同意的多作者复盘。需要至少一个 `--consented-author` 项 | `false`（即默认 self-scope） |
+| `--consented-author NAME` | 已知情同意纳入此次复盘的作者名/邮箱（可重复使用）。**只有**列出的作者会被分析 | `[]`（self-scope 时只分析当前 Git 用户） |
+| `--scan-all` | 递归扫描所有 `.git` 仓库（每个仓库内仍受 self-scope / consented-authors 约束） | `false` |
 | `-s, --since` | 起始日期（ISO 格式：`YYYY-MM-DD`） | — |
 | `-u, --until` | 截止日期（ISO 格式：`YYYY-MM-DD`） | — |
 | `-b, --branch` | 要分析的分支 | 当前分支 |
 | `-f, --format` | 输出格式：`markdown`、`json`、`html`、`pdf`（逗号分隔可多选） | `markdown` |
 | `-o, --output` | 输出文件路径 | 标准输出 |
+
+> **注意**：本工具不再提供 `-a/--author` 这类直接的"按作者过滤"参数。要分析他人，必须显式启用 `--multi-author-team-retro` 并逐个传入 `--consented-author`，否则只分析当前本地 Git 用户自己。
 
 ## 📁 项目结构
 
@@ -102,10 +105,10 @@ code-analysis-skills/
 │   │   ├── work_habit_analyzer.py  # 工作习惯分析
 │   │   ├── efficiency_analyzer.py  # 开发效率分析
 │   │   ├── code_style_analyzer.py  # 代码风格分析
-│   │   ├── code_quality_analyzer.py # 代码质量分析
-│   │   └── slacking_analyzer.py # 节奏密度信号（保留旧文件名以兼容；概念上为 Engagement Signal Analyzer）
-│   ├── evaluator/
-│   │   └── developer_evaluator.py  # 自查报告生成器（描述性指标 / 观察 / 讨论提示）
+│   │   ├── code_quality_analyzer.py # 代码质量痕迹分析
+│   │   └── cadence_signal_analyzer.py # 节奏信号分析（不输出综合分 / 等级 / 排名）
+│   ├── narrator/
+│   │   └── reflection_narrator.py  # 自查叙述生成器（中性观察 / 讨论点 / 反思提示，无评分）
 │   ├── reporters/
 │   │   ├── base_reporter.py    # 报告生成器基类
 │   │   ├── markdown_reporter.py # Markdown 报告生成器

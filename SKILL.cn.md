@@ -114,14 +114,17 @@ python -m src.main --i-have-consent -r /path/to/repo -o report.md
 | 参数 | 缩写 | 说明 | 默认值 |
 |------|------|------|--------|
 | `--repo-path` | `-r` | Git 仓库路径或父目录 | 必填 |
-| `--i-have-consent` |  | 必填，使用政策确认（见上文） | 必填 |
-| `--scan-all` |  | 递归扫描所有 `.git` 仓库 | `false` |
-| `--author` | `-a` | 按作者过滤（可重复使用） | 全部作者 |
+| `--i-have-consent` |  | 必填，使用政策确认（见上文）。**没有**环境变量绕过 | 必填 |
+| `--multi-author-team-retro` |  | 退出 self-scope 模式；要分析本地 Git 用户之外的人，必须传此项，并且需与 `--consented-author` 同时传入 | `false`（即默认 self-scope） |
+| `--consented-author` |  | 已获知情同意纳入本次复盘的作者名/邮箱（可重复）。**只有**列出的作者会被分析 | `[]` |
+| `--scan-all` |  | 递归扫描所有 `.git` 仓库（每个仓库内仍受 self-scope / consented-authors 约束） | `false` |
 | `--since` | `-s` | 起始日期（ISO 格式） | 无 |
 | `--until` | `-u` | 截止日期（ISO 格式） | 无 |
 | `--branch` | `-b` | 要分析的分支 | 当前活跃分支 |
 | `--format` | `-f` | 输出格式：`markdown`、`json`、`html`、`pdf`（逗号分隔可多选） | `markdown` |
 | `--output` | `-o` | 输出文件路径 | 标准输出 |
+
+> 本技能**有意不**提供通用的 `--author` 过滤参数。要定向分析某人，必须走二次明确同意路径（`--multi-author-team-retro` + `--consented-author NAME`）。
 
 ---
 
@@ -205,8 +208,8 @@ python -m src.main --i-have-consent -r /path/to/repo -o report.md
 - `src/analyzers/efficiency_analyzer.py` — 代码变更模式统计（仅描述性，文件头带使用限制）。
 - `src/analyzers/code_style_analyzer.py` — 代码风格标记。
 - `src/analyzers/code_quality_analyzer.py` — 代码质量痕迹。
-- `src/analyzers/slacking_analyzer.py` — 节奏密度信号（保留旧模块名以兼容；概念上重命名为*Engagement Signal Analyzer*）。
-- `src/evaluator/developer_evaluator.py` — 自查报告生成器（描述性指标、观察、讨论点；文件头带使用限制）。
+- `src/analyzers/cadence_signal_analyzer.py` — 节奏分量信号。仅输出各分量值 — **不**输出综合评分、**不**输出类别分段、**不**输出任何 `slacking_*` 字段。
+- `src/narrator/reflection_narrator.py` — 自查叙述生成器。仅输出中性观察 / 讨论点 / 反思提示 — **不**输出评分、**不**输出等级、**不**输出定论。
 - `src/reporters/markdown_reporter.py` — Markdown 报告生成器。
 - `src/reporters/json_reporter.py` — JSON 报告生成器。
 - `src/reporters/html_reporter.py` — HTML 报告生成器。
