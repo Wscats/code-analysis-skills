@@ -1,13 +1,33 @@
 """
-Efficiency Analyzer - Measures development efficiency and productivity.
+Efficiency Analyzer - Aggregates Git diff statistics into descriptive
+code-change metrics.
+
+⚠️  IMPORTANT — INTENDED USE & LIMITATIONS
+
+The metrics produced here (churn rate, rework ratio, lines per commit,
+file ownership, bus factor) are derived purely from Git diffs and authorship
+records. They DO NOT measure software-engineering productivity or the value
+of an individual's contribution. A senior architect, code reviewer, on-call
+engineer, mentor, or someone working on hard, exploratory problems will
+naturally show very different numbers than someone churning out boilerplate.
+
+These metrics are intended for:
+  - Self-reflection by the developer being analyzed (with their consent)
+  - Aggregate, anonymized team-health diagnostics (e.g., overall bus-factor
+    risk for a repository, not per-person ranking)
+
+They MUST NOT be used to:
+  - Evaluate, rank, discipline, or compare individual employees
+  - Drive performance reviews, promotions, compensation, or PIP decisions
+  - Surveil employees without informed consent
 
 Metrics include:
   - Code churn rate (lines added then quickly deleted)
   - Rework ratio (changes to recently modified files)
   - Commit throughput over time
-  - File ownership concentration
-  - Bus factor estimation
-  - Lines of code per commit (productivity proxy)
+  - File ownership concentration (per-repo, never per-person ranking)
+  - Bus factor estimation (a *repository-level* risk indicator)
+  - Lines of code per commit (a volume indicator only — NOT a productivity proxy)
 """
 
 import logging
@@ -21,7 +41,13 @@ logger = logging.getLogger(__name__)
 
 
 class EfficiencyAnalyzer(BaseAnalyzer):
-    """Measures development efficiency and productivity per author."""
+    """Aggregates Git diff statistics into descriptive code-change metrics.
+
+    Output is intended for *aggregate* team-health observation and
+    *self-reflection* — not for individual performance evaluation.
+    Every per-author result includes an ``interpretation_notice`` field
+    that downstream renderers must surface to the reader.
+    """
 
     # If a file is modified again within this many days, count it as rework
     REWORK_WINDOW_DAYS = 7
@@ -115,6 +141,13 @@ class EfficiencyAnalyzer(BaseAnalyzer):
                 "owned_files_count": owned_files,
                 "ownership_ratio": round(owned_files / total_unique_files, 3) if total_unique_files else 0,
                 "weekly_throughput": weekly_throughput,
+                "interpretation_notice": (
+                    "Descriptive Git-diff statistic only. Does NOT measure "
+                    "productivity or the value of an individual's contribution. "
+                    "Code reviews, design, mentoring, and refactor planning are "
+                    "invisible here. Must not be used for performance evaluation, "
+                    "ranking, or HR decisions."
+                ),
             }
 
         # Add global bus factor

@@ -2,106 +2,93 @@
 name: code-analysis
 license: MIT
 description: >
-  This skill should be used when the user needs to analyze Git repositories,
-  compare developer commit patterns, work habits, development efficiency,
-  code style, code quality, and slacking behaviors. It generates honest,
-  direct developer evaluations with scores, grades, strengths, weaknesses,
-  and actionable suggestions. Trigger phrases include "analyze code",
-  "analyze repository", "compare developers", "code quality report",
-  "commit patterns", "developer efficiency", "developer evaluation",
-  "slacking index", "摸鱼指数", "工作习惯分析", "代码分析",
-  "研发效率", "代码质量", "开发者评估", "developer score".
+  This skill produces a DESCRIPTIVE Git-history reflection report. It is
+  intended ONLY for: (a) a developer running it on their own repository for
+  self-reflection, or (b) an opt-in, consent-based team retrospective on a
+  shared repository. The skill MUST NOT be used to evaluate, rank, compare,
+  discipline, or surveil individual workers, or to support performance
+  reviews, compensation, promotion, or any HR decision.
+
+  Trigger only on explicit, intent-clear requests such as:
+  "generate a Git-history reflection report on my own repo",
+  "self-reflection on my commit patterns",
+  "team retrospective with everyone's consent",
+  "对我自己的仓库做一个 Git 历史自查报告",
+  "团队复盘（已获每个人同意）".
+
+  Do NOT trigger on broad phrases like "analyze code", "代码分析",
+  "developer evaluation", or "compare developers" — those are too vague
+  and risk activating people-data analysis without consent. When the
+  request is ambiguous, ask the user to clarify intent and confirm they
+  have informed consent from every developer whose history will be read.
 ---
 
-# Code Analysis Skill
+# Git-History Reflection Skill
 
 📦 **GitHub**: [https://github.com/Wscats/code-analysis-skills](https://github.com/Wscats/code-analysis-skills)
 
-Scan specified repositories or directories containing Git repositories, analyze and compare developers' commit habits, work patterns, development efficiency, code style, code quality, and slacking index. Provide blunt, data-driven evaluations for each developer with scores, grades, strengths, weaknesses, and actionable suggestions. Output structured reports in Markdown / HTML / JSON / PDF.
+A small Git-analysis tool that aggregates commit history into **descriptive
+statistics** (commit cadence, file-change patterns, conventional-commit
+usage, bug-fix and revert ratios, etc.) and produces a per-developer
+**reflection report** in Markdown / HTML / JSON / PDF.
 
-## 💬 Natural Language (Recommended)
+The output is a *narrow, biased* picture — code review, design, mentoring,
+on-call work, operations, and many other contributions are invisible to Git
+history. Treat findings as **discussion prompts, not verdicts**.
 
-You don't need to memorize any commands — simply describe what you need in your own language:
+---
 
-### 🇺🇸 English
+## ⚠️ Required usage policy (read before using)
 
-```
-💬 "Analyze Alice's development efficiency in /path/to/repo"
-💬 "Show me the team's work habits in this project"
-💬 "Compare Alice and Bob's code quality"
-💬 "What's the slacking index of this project?"
-💬 "Generate a full developer evaluation report"
-💬 "Score all developers and tell me who's slacking"
-💬 "What's wrong with Bob's commit habits?"
-💬 "Here's my repo, can you analyze the team?"
-```
+This skill processes **per-developer Git activity data**. Before invoking it,
+the agent must verify all of the following with the user:
 
-### 🇨🇳 中文
+1. **Self-reflection or opt-in only.** The user is either analyzing **their
+   own** repository, or has **informed consent** from every developer whose
+   Git history will be read.
+2. **Non-punitive.** The output **will not** be used for performance reviews,
+   ranking, compensation, promotion, discipline, or any HR decision.
+3. **No surveillance.** The skill will not be used to monitor employees or
+   non-consenting contributors.
+4. **Compliance.** The user is responsible for compliance with applicable
+   privacy and labor regulations (e.g., GDPR, local works-council rules).
 
-```
-💬 "分析一下这个仓库 Alice 的研发效率"
-💬 "帮我看看团队成员的工作习惯"
-💬 "对比一下 Alice 和 Bob 的代码质量"
-💬 "看看这个项目的摸鱼指数"
-💬 "给所有开发者做个完整评估打分"
-💬 "谁的代码质量最差？帮我分析下"
-💬 "最近一个月团队的提交习惯怎么样？"
-💬 "这个仓库有什么问题？帮我诊断下"
-```
+The agent **must refuse** the request when any of the above is unclear, and
+ask the user to confirm explicitly. The CLI / skill entry point also enforces
+this with a hard gate (`--i-have-consent` flag or
+`acknowledge_usage_policy: true` parameter, or the
+`CODE_ANALYSIS_ACK_USAGE_POLICY=1` environment variable).
 
-### 🇯🇵 日本語
+---
 
-```
-💬 "このリポジトリの開発者効率を分析してください"
-💬 "チームメンバーの作業習慣を見せてください"
-💬 "AliceとBobのコード品質を比較してください"
-💬 "このプロジェクトのサボり指数は？"
-💬 "全開発者の評価レポートを作成してください"
-```
-
-### 🇰🇷 한국어
+## ✅ Acceptable invocations (examples)
 
 ```
-💬 "이 레포지토리의 개발 효율성을 분석해줘"
-💬 "팀원들의 작업 습관을 보여줘"
-💬 "Alice와 Bob의 코드 품질을 비교해줘"
-💬 "이 프로젝트의 땡땡이 지수가 뭐야?"
-💬 "모든 개발자에 대한 평가 보고서를 만들어줘"
+💬 "Run a Git-history reflection report on my own repo at /path/to/repo."
+💬 "Help me prepare a team retro — everyone has agreed to opt in."
+💬 "I want to look at my own commit cadence for self-reflection."
+💬 "对我自己的仓库做一次 Git 历史自查。"
+💬 "团队复盘（已经征得每个成员同意），帮我跑一份 Git 历史汇总。"
 ```
 
-### 🇪🇸 Español
+## 🚫 Refuse these invocations
 
 ```
-💬 "Analiza la eficiencia de desarrollo de Alice en este repositorio"
-💬 "Muéstrame los hábitos de trabajo del equipo"
-💬 "Compara la calidad del código de Alice y Bob"
-💬 "¿Cuál es el índice de holgazanería de este proyecto?"
-💬 "Genera un informe de evaluación completo de los desarrolladores"
+❌ "对比一下 Alice 和 Bob 谁更努力。"           # ranking individuals
+❌ "看看团队里谁最摸鱼。"                        # surveillance / shaming
+❌ "帮我把绩效不行的同事找出来。"                # HR decision support
+❌ "Score everyone in the repo and tell me who to fire."
+❌ "Compare developer X against developer Y for the performance cycle."
 ```
 
-### 🇫🇷 Français
+If the user phrases a request like this, the agent must explain the usage
+policy, decline the request as written, and offer the acceptable alternatives
+(self-reflection, or a consent-based team retrospective with anonymized /
+aggregated output).
 
-```
-💬 "Analyse l'efficacité de développement d'Alice dans ce dépôt"
-💬 "Montre-moi les habitudes de travail de l'équipe"
-💬 "Compare la qualité du code d'Alice et de Bob"
-💬 "Quel est l'indice de paresse de ce projet ?"
-💬 "Génère un rapport d'évaluation complet des développeurs"
-```
-
-### 🇩🇪 Deutsch
-
-```
-💬 "Analysiere die Entwicklungseffizienz von Alice in diesem Repository"
-💬 "Zeig mir die Arbeitsgewohnheiten des Teams"
-💬 "Vergleiche die Codequalität von Alice und Bob"
-💬 "Was ist der Faulenzer-Index dieses Projekts?"
-💬 "Erstelle einen vollständigen Bewertungsbericht für alle Entwickler"
-```
-
-> **Note**: You need to provide the repository path (`repo_path`) — it is a required parameter. If you are already working within a repository context, the agent may infer the path from the conversation, but an explicit path is always recommended for accuracy.
-
-The Skill understands all the languages above. Just describe what you need and it will run the analysis on your repository and return a structured report.
+> **Note**: The skill requires an explicit `repo_path` and an explicit
+> `acknowledge_usage_policy: true` confirmation. Without both, it refuses
+> to run.
 
 ---
 
@@ -123,27 +110,27 @@ pip install pdfkit       # Requires system wkhtmltopdf
 
 ### Common Commands
 
+> All commands require the `--i-have-consent` flag. Without it, the tool
+> prints the usage notice and exits without running.
+
 ```bash
-# Analyze a single repository (all contributors)
-python -m src.main -r /path/to/repo
+# Analyze a single repository (your own, or with everyone's consent)
+python -m src.main --i-have-consent -r /path/to/repo
 
-# Scan all repositories under a directory
-python -m src.main -r /path/to/projects --scan-all
+# Scan all repositories under a directory (only if you own them or have consent)
+python -m src.main --i-have-consent -r /path/to/projects --scan-all
 
-# Compare specific developers
-python -m src.main -r /path/to/repo -a "Alice" -a "Bob"
+# Limit to your own author identity for self-reflection
+python -m src.main --i-have-consent -r /path/to/repo -a "Your Name"
 
 # Specify date range + HTML output
-python -m src.main -r /path/to/repo -s 2024-01-01 -u 2024-12-31 -f html -o report.html
+python -m src.main --i-have-consent -r /path/to/repo -s 2024-01-01 -u 2024-12-31 -f html -o report.html
 
 # Generate Markdown + HTML + PDF simultaneously
-python -m src.main -r /path/to/repo -f "markdown,html,pdf" -o report
-
-# Generate PDF report only
-python -m src.main -r /path/to/repo -f pdf -o report.pdf
+python -m src.main --i-have-consent -r /path/to/repo -f "markdown,html,pdf" -o report
 
 # Save report to a file
-python -m src.main -r /path/to/repo -o report.md
+python -m src.main --i-have-consent -r /path/to/repo -o report.md
 ```
 
 ### CLI Parameters
@@ -151,7 +138,8 @@ python -m src.main -r /path/to/repo -o report.md
 | Parameter | Short | Description | Default |
 |-----------|-------|-------------|---------|
 | `--repo-path` | `-r` | Path to Git repository or parent directory | Required |
-| `--scan-all` | | Recursively scan all `.git` repositories | `false` |
+| `--i-have-consent` |  | Required usage-policy acknowledgement (see above) | Required |
+| `--scan-all` |  | Recursively scan all `.git` repositories | `false` |
 | `--author` | `-a` | Filter by author (repeatable) | All authors |
 | `--since` | `-s` | Start date (ISO format) | None |
 | `--until` | `-u` | End date (ISO format) | None |
@@ -161,148 +149,212 @@ python -m src.main -r /path/to/repo -o report.md
 
 ---
 
-## Use Cases
+## Acceptable Use Cases
 
-- Analyze developer behavior in a Git repository
-- Compare team members' commit habits and development efficiency
-- Understand code quality trends and style consistency
-- Batch-analyze all `.git` repositories under a directory
-- Generate work habit reports (active hours, weekend/late-night coding, streaks, etc.)
-- Evaluate each developer's overall capability with scores, strengths, weaknesses, and suggestions
-- View the team's "Slacking Index" leaderboard
-- Produce formal PDF reports for review
+- A developer reflecting on **their own** commit cadence and code-change patterns.
+- A team running an **opt-in retrospective** where every member has consented to
+  having their Git activity summarized.
+- Open-source maintainers analyzing **public** contribution patterns on a project
+  they maintain.
+- Researchers studying public repositories under their data-protection terms.
+
+## Unacceptable Use Cases (the skill must refuse these)
+
+- Performance reviews, promotion / compensation / PIP decisions.
+- Ranking, scoring, or publicly comparing individual workers.
+- Identifying "low performers" or "slacking" team members.
+- Any form of employee surveillance without informed consent.
+- Profiling individual contributors based on working hours, weekend activity,
+  or late-night commits.
 
 ## Workflow
 
-### Step 1: Confirm Analysis Parameters
+### Step 1: Confirm intent and consent (mandatory)
 
-Ask the user for the following information:
-- **Repository path**: A single Git repo path, or a parent directory containing multiple repos
-- **Scan scope**: Whether to scan all `.git` repos under the directory (`--scan-all`)
-- **Target authors**: Analyze specific developers (multi-select) or all contributors
-- **Date range**: Optional start/end dates (ISO format, e.g., `2024-01-01`)
-- **Branch**: Branch to analyze; defaults to the current active branch
-- **Output format**: `markdown` (default), `json`, `html`, `pdf`, or comma-separated combination
+Before invoking the analyzer, ask the user:
 
-### Step 2: Run the Analysis
+1. **Whose repository is this?** Self / team / open source?
+2. **Has every analyzed developer given informed consent?** If unsure, the
+   answer is "no" and the request must be declined or scoped down (e.g., to
+   the user's own author identity only).
+3. **What is the intended use of the output?** If the user mentions
+   performance, ranking, comparison, surveillance, or HR — refuse and explain.
 
-Execute the analysis script with the confirmed parameters (see Quick Start above for command examples).
+Only proceed when intent and consent are both clear.
 
-### Step 3: Interpret the Report
+### Step 2: Confirm Analysis Parameters
 
-The report covers seven dimensions. Walk the user through the key findings for each:
+- **Repository path**: A single Git repo path, or a parent directory.
+- **Scan scope**: Whether to scan all `.git` repos under the directory.
+- **Target authors**: Default to the user themselves for self-reflection.
+- **Date range**: Optional start/end dates (ISO format).
+- **Branch**: Defaults to the current active branch.
+- **Output format**: `markdown` (default), `json`, `html`, `pdf`.
 
-1. **🏆 Developer Evaluation** — Overall score (S/A/B/C/D/E/F), strengths, weaknesses, improvement suggestions, one-line verdict
-2. **🐟 Slacking Index** — Activity level, trivial commit ratio, disappearance ratio, low output, procrastination signals
-3. **📝 Commit Habits** — Commit frequency, commit size, merge ratio, message quality
-4. **⏰ Work Habits** — Active hour distribution, weekend/late-night coding ratio, consecutive coding streaks
-5. **🚀 Development Efficiency** — Code churn rate, rework rate, Bus Factor, file ownership
-6. **🎨 Code Style** — Language distribution, Conventional Commits compliance, file classification
-7. **🔍 Code Quality** — Bug fix ratio, revert frequency, large commit ratio, test coverage, complexity
+### Step 3: Run the Analysis
 
-For multi-developer analysis, additional sections include:
-- 📋 Cross-comparison summary table
-- 🏆 Developer score leaderboard
-- 🐟 Slacking Index leaderboard
+Pass `--i-have-consent` (CLI) or `acknowledge_usage_policy: true` (skill
+parameter) along with the parameters above. The tool refuses to run otherwise.
 
-### Step 4: Deep-Dive into Evaluation Results
+### Step 4: Interpret the Report
 
-For each developer's evaluation, deliver a blunt, no-nonsense interpretation to the user:
+Every report opens with a **usage notice**. When walking the user through
+findings, repeat the framing each time:
 
-1. **Score & Grade**: Total score (0-100) and corresponding grade (S/A/B/C/D/E/F)
-2. **Six Dimension Scores**: Commit discipline, work consistency, efficiency, code quality, code style, engagement
-3. **Strengths**: Each backed by concrete data, not generic praise
-4. **Weaknesses**: No sugarcoating — point directly at the problem and its impact
-5. **Suggestions**: Actionable improvement measures, each immediately executable
-6. **Slacking Index**: Interpret each signal and its meaning
+- The numbers describe **Git history**, not the person.
+- Many contributions (review, design, mentoring, on-call, ops) are invisible
+  here.
+- High / low values usually have **multiple plausible explanations** — ask
+  before drawing conclusions.
+
+The report covers:
+
+1. **🪞 Reflection Summary** — Composite descriptive indicator (0–100), an
+   indicator band (S/A/B/C/D/E/F), supportive observations, points to consider
+   with context, and discussion prompts. **Not** a grade or verdict.
+2. **📉 Cadence-density signals** — How sparse / bursty the Git activity looks.
+   **Not** a productivity or engagement measure. Many legitimate work patterns
+   produce sparse cadence.
+3. **📝 Commit Patterns** — Frequency, size, merge ratio, message length.
+4. **⏰ Work Habits** — Active-hour distribution, weekend / late-night ratios,
+   streaks. Read with full context (time-zone, on-call, batched pushes).
+5. **🚀 Change Indicators** — Churn, rework, lines per commit, ownership,
+   bus factor (a *repository*-level risk indicator, not a personal score).
+6. **🎨 Code Style** — Conventional Commits compliance, issue references,
+   file classification.
+7. **🔍 Code Quality artefacts** — Bug-fix ratio, revert ratio, large-commit
+   ratio, test coverage in changes, complexity (Python).
+
+For multi-developer analysis, the report also includes an **alphabetical
+overview** (intentionally not a leaderboard). Do not present these tables as
+rankings to the user.
+
+### Step 5: Frame the Findings as Prompts, Not Verdicts
+
+When discussing per-developer results, always:
+
+1. State the indicator and what it literally measures.
+2. List **multiple plausible explanations** for the observed value.
+3. Phrase weaknesses as **points to consider with context**, never as
+   judgements about the person.
+4. Phrase suggestions as **discussion prompts**, never as directives.
 
 ## Available Resources
 
 ### Scripts
 
-- `src/main.py` — Main entry point with CLI argument support, orchestrates the full analysis pipeline and generates reports
-- `src/scanner.py` — Repository scanner, discovers single or recursively scans multiple Git repositories
-- `src/analyzers/base_analyzer.py` — Base analyzer class providing Git history traversal and author filtering
-- `src/analyzers/commit_analyzer.py` — Commit habit analysis (frequency, size, message quality)
-- `src/analyzers/work_habit_analyzer.py` — Work habit analysis (active hours, weekends, late nights, streaks)
-- `src/analyzers/efficiency_analyzer.py` — Development efficiency analysis (churn, rework, bus factor)
-- `src/analyzers/code_style_analyzer.py` — Code style analysis (language distribution, commit conventions)
-- `src/analyzers/code_quality_analyzer.py` — Code quality analysis (bug fixes, reverts, complexity)
-- `src/analyzers/slacking_analyzer.py` — Slacking index analysis (activity, trivial commits, disappearance patterns, procrastination, etc.)
-- `src/evaluator/developer_evaluator.py` — Developer evaluation engine (overall scoring, strengths/weaknesses, suggestions, verdicts)
-- `src/reporters/markdown_reporter.py` — Markdown report generator
-- `src/reporters/json_reporter.py` — JSON report generator
-- `src/reporters/html_reporter.py` — HTML report generator (with rich visual styling)
-- `src/reporters/pdf_reporter.py` — PDF report generator (supports weasyprint/pdfkit/reportlab fallback)
+- `src/main.py` — Main entry point (with usage-policy gate). Refuses to run
+  without explicit consent acknowledgement.
+- `src/scanner.py` — Repository scanner.
+- `src/analyzers/base_analyzer.py` — Base analyzer (Git history traversal).
+- `src/analyzers/commit_analyzer.py` — Commit-pattern statistics.
+- `src/analyzers/work_habit_analyzer.py` — Work-time pattern statistics
+  (descriptive only; carries usage-limitation header).
+- `src/analyzers/efficiency_analyzer.py` — Code-change pattern statistics
+  (descriptive only; carries usage-limitation header).
+- `src/analyzers/code_style_analyzer.py` — Code-style markers.
+- `src/analyzers/code_quality_analyzer.py` — Code-quality artefacts.
+- `src/analyzers/slacking_analyzer.py` — Cadence-density signals (legacy
+  module name kept for compatibility; renamed conceptually to *Engagement
+  Signal Analyzer*).
+- `src/evaluator/developer_evaluator.py` — Per-developer reflection report
+  generator (descriptive indicators, observations, points to consider,
+  discussion prompts; carries usage-limitation header).
+- `src/reporters/markdown_reporter.py` — Markdown report generator.
+- `src/reporters/json_reporter.py` — JSON report generator.
+- `src/reporters/html_reporter.py` — HTML report generator.
+- `src/reporters/pdf_reporter.py` — PDF report generator.
 
 ### Reference Documents
 
-- `references/metrics-guide.md` — Metric definitions, calculation methods, and healthy value reference ranges. Read this file when users ask about the meaning of a specific metric.
+- `references/metrics-guide.md` — Metric definitions, calculation methods,
+  and reference ranges. Read this when users ask about a specific indicator.
 
 ## ⚠️ Privacy & Data Security Notice
 
-> **Important**: This tool extracts personal developer activity data from Git commit history, including but not limited to:
+> **Important**: This tool extracts personal Git activity data from a
+> repository's commit history, including but not limited to:
 > - Commit timestamps (down to the hour)
-> - Weekend/late-night coding frequency
-> - Individual commit frequency and output volume
-> - Code ownership attribution
-> - Slacking index and behavioral assessments
+> - Weekend / late-night commit frequency
+> - Per-author commit frequency and change volume
+> - Code authorship attribution
+> - Cadence-sparsity signals
 
-**Before using, you must adhere to the following principles:**
+**You must adhere to all of the following:**
 
-1. **Informed Consent** — Obtain informed consent from all relevant developers before analyzing their repositories
-2. **Non-Punitive Use** — Analysis results **must not** be directly used for performance reviews, compensation decisions, or punitive management
-3. **Contextual Understanding** — Data must be interpreted within actual work context (e.g., architects naturally commit less; that does not indicate low output)
-4. **Data Protection** — Generated reports contain personal information and should be securely stored, not publicly shared
-5. **Compliance** — Ensure usage complies with your organization's HR policies and local data protection regulations (e.g., GDPR)
-6. **Local Execution** — This tool runs entirely locally and does not transmit any data to external servers
+1. **Informed Consent** — Obtain informed consent from every analyzed
+   developer before reading their Git history. Self-reflection on your own
+   repository is fine.
+2. **Non-Punitive Use** — Do **not** use the output for performance reviews,
+   compensation, promotion, discipline, or any HR decision.
+3. **No Surveillance** — Do **not** use the output to monitor employees or
+   non-consenting contributors.
+4. **Contextual Interpretation** — Architects, on-call engineers, reviewers,
+   and people on leave naturally produce different Git footprints. Low signal
+   values do **not** mean low effort or low value.
+5. **Data Protection** — Generated reports contain personal information.
+   Store them securely and do not publish them.
+6. **Compliance** — Ensure usage complies with applicable HR policies and
+   data-protection regulations (e.g., GDPR, local works-council rules).
+7. **Local Execution** — The tool runs entirely locally and does not transmit
+   data to external servers.
 
-## Evaluation System
+## Composite Indicator (descriptive bands, NOT a grade)
 
-### Overall Score (0-100)
+The composite indicator is a *descriptive* roll-up of Git-history dimensions.
+It is **not** a measure of human worth, capability, or performance.
 
-| Grade | Score Range | Meaning |
-|-------|-------------|---------|
-| S | 90-100 | Top-tier contributor, excellent across all dimensions |
-| A | 80-89 | Outstanding developer, reliable and efficient |
-| B | 70-79 | Solid contributor with minor room for improvement |
-| C | 60-69 | Adequate, but needs improvement in multiple areas |
-| D | 50-59 | Barely passing, has clear weaknesses |
-| E | 35-49 | Below expectations, requires serious attention |
-| F | 0-34 | Critical issues, needs coaching or intervention |
+| Band | Indicator Range | Meaning (descriptive only) |
+|------|-----------------|----------------------------|
+| S | 90–100 | Most Git-history dimensions look healthy in this sample. |
+| A | 80–89  | Most dimensions look healthy; minor things to discuss. |
+| B | 70–79  | Healthy on most dimensions; a few worth a 1:1 chat. |
+| C | 60–69  | Mixed picture; several dimensions worth discussing. |
+| D | 50–59  | Mid-range indicators; specific dimensions may warrant a 1:1. |
+| E | 35–49  | Several indicators are below typical ranges — usually points to context invisible to Git (role focus, time-off, blockers). |
+| F | 0–34   | Markedly low across many dimensions — often reflects on-call / non-coding work, time-off, or other factors invisible to Git. |
 
-### Six Dimension Weights
+### Six Dimensions (descriptive weights)
 
-| Dimension | Weight | What It Evaluates |
+| Dimension | Weight | What It Describes |
 |-----------|--------|-------------------|
-| 📝 Commit Discipline | 15% | Commit frequency, message quality, convention compliance |
-| ⏰ Work Consistency | 15% | Routine regularity, work continuity |
-| 🚀 Efficiency | 20% | Code churn rate, rework rate, output volume |
-| 🔍 Code Quality | 25% | Bug fix rate, revert rate, test coverage, complexity |
-| 🎨 Code Style | 10% | Conventional Commits, issue references |
-| 💪 Engagement | 15% | Inverse of slacking index signals |
+| 📝 Commit Discipline | 15% | Commit frequency, message length, convention compliance |
+| ⏰ Cadence Consistency | 15% | Distribution of commit timestamps |
+| 🚀 Change Patterns | 20% | Churn, rework, change volume |
+| 🔍 Code Quality artefacts | 25% | Bug-fix ratio, revert ratio, test coverage in changes, complexity |
+| 🎨 Code Style markers | 10% | Conventional Commits, issue references |
+| 💪 Cadence Density | 15% | Inverse of cadence-sparsity signals |
 
-### Slacking Index (0-100)
+### Cadence-Sparsity Indicator (descriptive only)
 
-| Level | Score Range | Meaning |
-|-------|-------------|---------|
-| 🔥 Workaholic | 0-20 | Highly engaged, continuous contributions |
-| ✅ Normal | 21-40 | Healthy work pattern |
-| 😏 Suspicious | 41-60 | Some slacking signals detected |
-| 🐟 Slacking Pro | 61-80 | Significant low-engagement indicators |
-| 🏆 Slacking Master | 81-100 | Professional-grade slacking |
+| Band | Indicator Range | Meaning |
+|------|-----------------|---------|
+| Dense activity | 0–20 | Frequent commits over the active span. |
+| Regular activity | 21–40 | Typical commit cadence. |
+| Mixed cadence | 41–60 | Mixed cadence with some quiet stretches. |
+| Sparse cadence | 61–80 | Many quiet stretches; signal is partial — context required. |
+| Very sparse cadence | 81–100 | Activity is concentrated in short bursts. Read with full context. |
+
+> **Important**: a high cadence-sparsity value does **not** mean someone is
+> "slacking" — it just means commit activity is concentrated in time. Many
+> legitimate roles and life situations produce this pattern.
 
 ## Notes
 
-- Analyzing large repositories (100K+ commits) may take a long time; consider limiting the date range
-- Python code complexity analysis depends on the `radon` library and only works on `.py` files
-- Author matching supports fuzzy matching (matches on name or email containing the keyword)
-- Directory scanning defaults to a maximum depth of 5 levels to avoid excessive recursion
-- PDF generation prefers weasyprint, falls back to pdfkit, and ultimately falls back to reportlab
-- Evaluation results are based solely on Git commit history and do not represent a developer's full capability
-- The slacking index is for reference only and should be interpreted in actual work context
-- **This tool runs entirely locally and does not send data to any external server**
-- **Always obtain informed consent before analyzing team repositories**
-- **Report results must not be directly used for performance reviews or punitive management decisions**
-
-... EOF
+- Analyzing large repositories (100K+ commits) may take a long time; consider
+  limiting the date range.
+- Python complexity analysis depends on `radon` and only works on `.py` files.
+- Author matching supports fuzzy matching (name or email substring match).
+- Directory scanning defaults to a maximum depth of 5 levels.
+- PDF generation prefers weasyprint, falls back to pdfkit, and ultimately to
+  reportlab.
+- Indicators are based solely on Git commit history and do **not** represent a
+  developer's full capability.
+- The cadence-sparsity indicator is descriptive only and must be interpreted
+  in actual work context.
+- **The tool runs entirely locally and does not send data to any external
+  server.**
+- **Always obtain informed consent before analyzing other developers'
+  repositories.**
+- **Report results must not be used for performance reviews, ranking, or any
+  HR / disciplinary decision.**

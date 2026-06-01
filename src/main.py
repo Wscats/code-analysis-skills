@@ -1,17 +1,28 @@
 """
 Code Analysis Skills - Main Entry Point
 
-A comprehensive Git repository code analysis tool that scans repositories
-and analyzes developer commit patterns, work habits, development efficiency,
-code style, code quality, and slacking behaviors. Generates honest, direct
-evaluations for each developer with scores, grades, and actionable feedback.
+A Git-history reflection tool: scans Git repositories and produces descriptive
+statistics about commit cadence, file-change patterns, code-style markers, and
+code-quality artefacts (bug-fix commits, reverts, complexity).
 
-Outputs: Markdown, JSON, HTML, PDF
+⚠️  IMPORTANT — INTENDED USE & LIMITATIONS
+
+This tool produces DESCRIPTIVE STATISTICS only. The output:
+  - Is a NARROW, BIASED proxy. Code review, design, mentoring, on-call,
+    operations, and many other contributions are invisible to Git history.
+  - MUST NOT be used for performance reviews, ranking, compensation, promotion,
+    discipline, or any other HR decision.
+  - MUST be run only with the INFORMED CONSENT of every developer whose Git
+    history is analyzed.
+  - MUST be interpreted in context (role, time-zone, on-call, time-off, etc.).
+
+Outputs: Markdown, JSON, HTML, PDF — each carrying an explicit usage notice.
 """
 
 import json
 import logging
 import os
+import sys
 from typing import Optional
 
 import click
@@ -37,6 +48,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+USAGE_NOTICE_TEXT = (
+    "\n⚠️  Usage notice — please read before continuing.\n"
+    "\n"
+    "  This tool produces a DESCRIPTIVE summary of Git history only.\n"
+    "  It does NOT measure productivity, engagement, or the value of any\n"
+    "  individual’s contribution. Code review, design, mentoring, on-call,\n"
+    "  ops, and many other contributions are invisible to Git history.\n"
+    "\n"
+    "  DO NOT use the output of this tool for:\n"
+    "    • performance reviews, ranking, or comparison of individual workers\n"
+    "    • compensation, promotion, discipline, or PIP decisions\n"
+    "    • employee surveillance or monitoring of non-consenting contributors\n"
+    "\n"
+    "  Run this tool only with the INFORMED CONSENT of every developer whose\n"
+    "  Git history is analyzed, and ensure compliance with applicable privacy\n"
+    "  and labor regulations (e.g., GDPR, local works-council rules).\n"
+)
+
+
+CONSENT_ENV_VAR = "CODE_ANALYSIS_ACK_USAGE_POLICY"
+
+
 def run_analysis(
     repo_path: str,
     scan_all_repos: bool = False,
@@ -46,6 +79,7 @@ def run_analysis(
     branch: Optional[str] = None,
     output_format: str = "markdown",
     output_path: Optional[str] = None,
+    acknowledge_usage_policy: bool = False,
 ) -> dict:
     """
     Main analysis orchestrator.
@@ -59,10 +93,40 @@ def run_analysis(
         branch: Branch name to analyze.
         output_format: 'json', 'markdown', 'html', or 'pdf'.
         output_path: Output file path (used for PDF generation).
+        acknowledge_usage_policy: Caller must explicitly set this to True (or
+            set the ``CODE_ANALYSIS_ACK_USAGE_POLICY=1`` environment variable)
+            to confirm they have read the usage notice and have consent from
+            every developer whose Git history will be analyzed. The tool
+            refuses to run otherwise.
 
     Returns:
         A dict with 'report' (formatted string) and 'metrics' (raw data).
     """
+    # Refuse to run analysis without explicit acknowledgement of the usage
+    # notice. This is intentionally a hard gate: the analyzers below extract
+    # personal Git-activity data and the project must not become a
+    # frictionless surveillance tool.
+    env_ack = os.environ.get(CONSENT_ENV_VAR, "").strip().lower() in (
+        "1", "true", "yes", "y",
+    )
+    if not (acknowledge_usage_policy or env_ack):
+        logger.warning(USAGE_NOTICE_TEXT)
+        logger.warning(
+            "Refusing to run: pass acknowledge_usage_policy=True (or set %s=1 "
+            "in the environment) to confirm you have informed consent from "
+            "every analyzed developer and will not use the output for HR "
+            "decisions, ranking, or surveillance.",
+            CONSENT_ENV_VAR,
+        )
+        return {
+            "report": USAGE_NOTICE_TEXT + (
+                "\nAnalysis refused: usage policy was not acknowledged. "
+                f"Set acknowledge_usage_policy=True or {CONSENT_ENV_VAR}=1 "
+                "to proceed.\n"
+            ),
+            "metrics": {},
+            "reports": {},
+        }
     # Step 1: Discover repositories
     scanner = RepoScanner()
     if scan_all_repos:
@@ -188,8 +252,35 @@ def _get_reporter(output_format: str):
     help="Output format(s): markdown, json, html, pdf (comma-separated for multiple).",
 )
 @click.option("--output", "-o", default=None, help="Output file path (prints to stdout if omitted).")
-def cli(repo_path, scan_all, author, since, until, branch, output_format, output):
-    """Code Analysis Skills - Analyze Git repositories and developer behaviors."""
+@click.option(
+    "--i-have-consent",
+    "acknowledge_usage_policy",
+    is_flag=True,
+    default=False,
+    help=(
+        "Required. By passing this flag you confirm that (1) you have read the "
+        "usage notice, (2) you have informed consent from every developer whose "
+        "Git history will be analyzed, and (3) you will NOT use the output for "
+        "performance reviews, ranking, compensation, discipline, surveillance, "
+        "or any HR decision. Without this flag the tool refuses to run."
+    ),
+)
+def cli(repo_path, scan_all, author, since, until, branch, output_format, output, acknowledge_usage_policy):
+    """Code Analysis Skills - Generate a Git-history reflection report.
+
+    \b
+    Usage notice:
+      This tool produces a DESCRIPTIVE summary of Git history only and
+      MUST NOT be used for performance reviews, ranking, compensation,
+      discipline, or any HR decision. Run only with the informed consent
+      of every analyzed developer.
+
+      You must pass --i-have-consent to confirm.
+    """
+    # Always print the usage notice to stderr, even when --i-have-consent
+    # is set, so it travels with the command output.
+    click.echo(USAGE_NOTICE_TEXT, err=True)
+
     authors_list = list(author) if author else None
 
     result = run_analysis(
@@ -201,7 +292,14 @@ def cli(repo_path, scan_all, author, since, until, branch, output_format, output
         branch=branch,
         output_format=output_format,
         output_path=output,
+        acknowledge_usage_policy=acknowledge_usage_policy,
     )
+
+    if not result.get("metrics"):
+        # Refused or empty: just print the report (which contains the
+        # refusal explanation) and exit non-zero so scripts notice.
+        click.echo(result["report"])
+        sys.exit(2 if not acknowledge_usage_policy else 1)
 
     # Handle multiple output formats
     formats = _parse_formats(output_format)
@@ -244,7 +342,11 @@ def main(params: dict) -> dict:
     ClawHub skill entry point.
 
     Args:
-        params: Dict of parameters from skill.yaml.
+        params: Dict of parameters from skill.yaml. Must include
+            ``acknowledge_usage_policy: true`` (or the
+            ``CODE_ANALYSIS_ACK_USAGE_POLICY=1`` environment variable) to
+            confirm informed consent and acceptable use. The tool refuses to
+            run otherwise.
 
     Returns:
         Dict with 'report' and 'metrics' outputs.
@@ -258,6 +360,7 @@ def main(params: dict) -> dict:
         branch=params.get("branch") or None,
         output_format=params.get("output_format", "markdown"),
         output_path=params.get("output_path") or None,
+        acknowledge_usage_policy=bool(params.get("acknowledge_usage_policy", False)),
     )
 
 

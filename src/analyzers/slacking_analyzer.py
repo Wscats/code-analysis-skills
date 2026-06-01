@@ -1,22 +1,32 @@
 """
-Slacking Analyzer - Calculates developer "Slacking Index" (摸鱼指数).
+Engagement Signal Analyzer.
 
-This analyzer detects patterns that may indicate low engagement or
-"slacking" behaviors by analyzing commit timing, frequency, consistency,
-and output quality signals.
+⚠️  IMPORTANT — INTENDED USE & LIMITATIONS
 
-The Slacking Index is a composite score from 0 (hardworking) to 100 (slacking).
-It is meant to be taken with a grain of humor, but backed by real data.
+This analyzer extracts *aggregate* commit-pattern signals (sparsity, gap size,
+trivial-change ratio, etc.) from a Git repository.
 
-Signals analyzed:
-  - Commit frequency vs active days (sparse = suspicious)
-  - Single-line / trivial commit ratio (low-effort commits)
-  - Large gaps between commits (disappearing acts)
-  - Late-afternoon-only commits (deadline-driven behavior)
-  - Low code output relative to active time span
-  - Config-only / doc-only commit ratio (avoiding real code)
-  - Copy-paste signals (very large additions with no deletions)
-  - Friday-heavy / Monday-light patterns
+It is intended ONLY for:
+  - Self-reflection by the developer being analyzed (with their consent)
+  - Aggregate, anonymized team-health diagnostics
+  - Open-source contribution-pattern research with public data
+
+It is NOT a productivity meter, a "slacking detector", or an employee-performance
+metric, despite the legacy name `SlackingAnalyzer` kept here for backward
+compatibility. Git activity is a narrow, biased proxy that misses code review,
+mentoring, design, ops work, on-call, refactor planning, pair-programming, and
+many other forms of contribution. Low signal values do NOT mean low engagement
+or low value, and high signal values do NOT mean someone is "slacking".
+
+DO NOT use the output of this analyzer to:
+  - Make hiring, firing, promotion, compensation, or PIP decisions
+  - Rank, grade, or publicly compare individual developers
+  - Surveil employees or monitor non-consenting contributors
+  - Generate "leaderboards" of individual workers
+
+By using this module you accept responsibility for ensuring informed consent
+from every developer whose data is analyzed and for compliance with applicable
+privacy and labor regulations (e.g., GDPR, local works-council rules).
 """
 
 import logging
@@ -27,30 +37,41 @@ from src.analyzers.base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 
-# Thresholds
+# Thresholds (tuning knobs only — do not infer "performance" from these)
 TRIVIAL_COMMIT_LINE_THRESHOLD = 5  # commits with <= 5 lines changed
 LARGE_GAP_HOURS = 72  # 3 days without commits
-COPY_PASTE_RATIO = 10  # added/deleted ratio above this is suspicious
+HIGH_ADD_DELETE_RATIO = 10  # added/deleted ratio above this is unusually high
 
 
 class SlackingAnalyzer(BaseAnalyzer):
     """
-    Calculates a composite 'Slacking Index' for each developer.
+    Computes neutral, aggregate engagement-signal metrics for each author.
 
-    The index ranges from 0 to 100:
-      - 0-20:  Highly engaged, consistent contributor
-      - 21-40: Normal, healthy work pattern
-      - 41-60: Some slacking signals detected
-      - 61-80: Significant slacking indicators
-      - 81-100: Professional slacker detected 🐟
+    The composite ``engagement_signal_score`` ranges from 0 to 100 and reflects
+    *how sparse / bursty / low-volume* the Git activity looks relative to the
+    active span. It is a descriptive statistic, NOT a judgement of the person.
+
+    The legacy class name ``SlackingAnalyzer`` and the legacy field name
+    ``slacking_index`` are retained for backward compatibility only — readers
+    should treat them as ``EngagementSignalAnalyzer`` and
+    ``engagement_signal_score`` respectively.
     """
+
+    # Neutral, descriptive labels — no person-judgement language.
+    LEVEL_DESCRIPTIONS = [
+        (20, "Dense activity",      "活跃密集",   "Frequent commits over the active span."),
+        (40, "Regular activity",    "规律活跃",   "Typical commit cadence."),
+        (60, "Mixed cadence",       "节奏不均",   "Mixed cadence with some quiet stretches."),
+        (80, "Sparse cadence",      "节奏稀疏",   "Many quiet stretches; signal is partial — context required."),
+        (100, "Very sparse cadence","节奏非常稀疏","Activity is concentrated in short bursts. Read with full context."),
+    ]
 
     def analyze(self) -> Dict:
         """
-        Analyze slacking signals for each author.
+        Analyze engagement signals for each author.
 
         Returns:
-            Dict keyed by author name with slacking metrics and index.
+            Dict keyed by author name with neutral, aggregate signal metrics.
         """
         author_data = defaultdict(lambda: {
             "commit_times": [],
@@ -95,7 +116,7 @@ class SlackingAnalyzer(BaseAnalyzer):
 
             signals = {}
 
-            # Signal 1: Commit sparsity (few commits over a long active span)
+            # Signal 1: Cadence sparsity — unique active days / span days.
             dates = sorted(data["commit_dates"])
             if len(dates) >= 2:
                 span_days = (dates[-1] - dates[0]).days or 1
@@ -103,10 +124,9 @@ class SlackingAnalyzer(BaseAnalyzer):
                 span_days = 1
             unique_days = len(set(dates))
             activity_ratio = unique_days / span_days if span_days > 0 else 1.0
-            # Low activity ratio = high slacking signal
             signals["sparsity_score"] = max(0, min(25, round((1 - activity_ratio) * 30)))
 
-            # Signal 2: Trivial commit ratio
+            # Signal 2: Trivial-change ratio (commits with very few lines changed).
             trivial_count = sum(
                 1 for a, d in zip(data["lines_added"], data["lines_deleted"])
                 if (a + d) <= TRIVIAL_COMMIT_LINE_THRESHOLD
@@ -115,7 +135,7 @@ class SlackingAnalyzer(BaseAnalyzer):
             signals["trivial_commit_ratio"] = round(trivial_ratio, 3)
             signals["trivial_score"] = round(trivial_ratio * 20, 1)
 
-            # Signal 3: Large gaps between commits
+            # Signal 3: Long-gap ratio — proportion of inter-commit gaps over 72h.
             sorted_times = sorted(data["commit_times"])
             gap_hours = []
             large_gap_count = 0
@@ -129,10 +149,10 @@ class SlackingAnalyzer(BaseAnalyzer):
             signals["large_gap_ratio"] = round(large_gap_ratio, 3)
             signals["disappearance_score"] = round(large_gap_ratio * 20, 1)
 
-            # Signal 4: Low output (total lines per active day)
+            # Signal 4: Average lines per active day (volume proxy only;
+            # NOT a productivity score — small refactors and reviews don't show up here).
             total_lines = sum(data["lines_added"]) + sum(data["lines_deleted"])
             lines_per_day = total_lines / unique_days if unique_days > 0 else 0
-            # Very low output per day is a signal
             if lines_per_day < 20:
                 signals["low_output_score"] = 15
             elif lines_per_day < 50:
@@ -142,7 +162,7 @@ class SlackingAnalyzer(BaseAnalyzer):
             else:
                 signals["low_output_score"] = 0
 
-            # Signal 5: Config/doc-only commits (avoiding real code work)
+            # Signal 5: Non-code-only commit ratio (config / docs only commits).
             non_code_commits = 0
             for paths_list in data["file_paths"]:
                 if paths_list and all(self._is_non_code(p) for p in paths_list):
@@ -151,59 +171,61 @@ class SlackingAnalyzer(BaseAnalyzer):
             signals["non_code_ratio"] = round(non_code_ratio, 3)
             signals["non_code_score"] = round(non_code_ratio * 10, 1)
 
-            # Signal 6: Friday-heavy / Monday-light pattern (procrastination)
+            # Signal 6: Weekday-skew — descriptive only (e.g., commits clustered late in the week).
             dow_counts = Counter(data["weekdays"])
             friday_count = dow_counts.get(4, 0)
             monday_count = dow_counts.get(0, 0)
             weekday_total = sum(1 for d in data["weekdays"] if d < 5) or 1
             friday_ratio = friday_count / weekday_total
             monday_ratio = monday_count / weekday_total
-            # High Friday + Low Monday = deadline-driven
-            procrastination = max(0, friday_ratio - monday_ratio)
-            signals["procrastination_score"] = round(procrastination * 10, 1)
+            late_week_skew = max(0, friday_ratio - monday_ratio)
+            signals["late_week_skew_score"] = round(late_week_skew * 10, 1)
 
-            # Signal 7: Copy-paste signal (very high added/deleted ratio)
+            # Signal 7: Add/delete imbalance — descriptive only (often appears for
+            # initial commits, vendored code, generated files, etc.).
             total_added = sum(data["lines_added"])
             total_deleted = sum(data["lines_deleted"])
             if total_deleted > 0:
                 add_delete_ratio = total_added / total_deleted
             else:
                 add_delete_ratio = total_added if total_added > 0 else 1
-            copy_paste_signal = 1 if add_delete_ratio > COPY_PASTE_RATIO else 0
-            signals["copy_paste_score"] = copy_paste_signal * 5
+            high_add_signal = 1 if add_delete_ratio > HIGH_ADD_DELETE_RATIO else 0
+            signals["add_delete_imbalance_score"] = high_add_signal * 5
 
-            # Composite Slacking Index (sum of all signals, capped at 100)
-            slacking_index = min(100, round(
+            # Composite engagement signal score (0-100). Descriptive, not evaluative.
+            engagement_signal_score = min(100, round(
                 signals["sparsity_score"]
                 + signals["trivial_score"]
                 + signals["disappearance_score"]
                 + signals["low_output_score"]
                 + signals["non_code_score"]
-                + signals["procrastination_score"]
-                + signals["copy_paste_score"]
+                + signals["late_week_skew_score"]
+                + signals["add_delete_imbalance_score"]
             ))
 
-            # Determine level
-            if slacking_index <= 20:
-                level = "🔥 Workaholic"
-                level_cn = "🔥 工作狂"
-            elif slacking_index <= 40:
-                level = "✅ Normal"
-                level_cn = "✅ 正常"
-            elif slacking_index <= 60:
-                level = "😏 Suspicious"
-                level_cn = "😏 有嫌疑"
-            elif slacking_index <= 80:
-                level = "🐟 Slacker"
-                level_cn = "🐟 摸鱼达人"
-            else:
-                level = "🏆 Professional Slacker"
-                level_cn = "🏆 摸鱼大师"
+            level, level_cn, level_description = self._level_for(engagement_signal_score)
 
             result[author] = {
-                "slacking_index": slacking_index,
+                # New, neutral field names
+                "engagement_signal_score": engagement_signal_score,
+                "cadence_label": level,
+                "cadence_label_cn": level_cn,
+                "cadence_description": level_description,
+
+                # Legacy field names retained for backward compatibility
+                # (consumers should treat them as descriptive cadence stats only).
+                "slacking_index": engagement_signal_score,
                 "slacking_level": level,
                 "slacking_level_cn": level_cn,
+
+                # Always-attached interpretive guard so downstream renderers
+                # cannot accidentally drop the disclaimer.
+                "interpretation_notice": (
+                    "Descriptive Git-cadence statistic only. Does NOT measure "
+                    "productivity, engagement, or work quality. Must not be used "
+                    "for performance evaluation, ranking, or HR decisions."
+                ),
+
                 "total_commits": total,
                 "active_span_days": span_days,
                 "unique_active_days": unique_days,
@@ -218,15 +240,24 @@ class SlackingAnalyzer(BaseAnalyzer):
                 "signal_breakdown": {
                     "sparsity": signals["sparsity_score"],
                     "trivial_commits": signals["trivial_score"],
-                    "disappearance": signals["disappearance_score"],
-                    "low_output": signals["low_output_score"],
-                    "non_code": signals["non_code_score"],
-                    "procrastination": signals["procrastination_score"],
-                    "copy_paste": signals["copy_paste_score"],
+                    "long_gaps": signals["disappearance_score"],
+                    "low_volume": signals["low_output_score"],
+                    "non_code_only": signals["non_code_score"],
+                    "late_week_skew": signals["late_week_skew_score"],
+                    "add_delete_imbalance": signals["add_delete_imbalance_score"],
                 },
             }
 
         return result
+
+    @classmethod
+    def _level_for(cls, score: int):
+        """Return (en_label, cn_label, description) for an engagement signal score."""
+        for ceiling, en, cn, desc in cls.LEVEL_DESCRIPTIONS:
+            if score <= ceiling:
+                return en, cn, desc
+        en, cn, desc = cls.LEVEL_DESCRIPTIONS[-1][1:]
+        return en, cn, desc
 
     @staticmethod
     def _is_non_code(filepath: str) -> bool:

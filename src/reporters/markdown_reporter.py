@@ -3,9 +3,14 @@ Markdown Reporter - Generates comprehensive analysis reports in Markdown format.
 
 Includes:
   - Per-developer metrics across all 5 analysis dimensions
-  - Slacking Index (摸鱼指数)
-  - Developer Evaluation (score, grade, strengths, weaknesses, suggestions, verdict)
+  - Cadence-density signals (descriptive only)
+  - Per-developer reflection report (descriptive indicators, observations,
+    points to consider, and discussion prompts)
   - Cross-developer comparison table
+
+Reports always carry an explicit usage notice clarifying that the output is
+a DESCRIPTIVE summary of Git history only and must NOT be used for performance
+reviews, ranking, or HR decisions.
 """
 
 from typing import Dict
@@ -13,13 +18,31 @@ from typing import Dict
 from src.reporters.base_reporter import BaseReporter
 
 
+USAGE_NOTICE_MD = (
+    "> ⚠️ **Usage notice — please read first.** This report is a **descriptive "
+    "summary of Git history only**. It does **not** measure productivity, "
+    "engagement, or the value of any individual's contribution. Code review, "
+    "design, mentoring, on-call, ops, and many other contributions are "
+    "invisible to Git history. **Do not** use this report for performance "
+    "evaluation, ranking, compensation, promotion, discipline, or any HR "
+    "decision. Run it only with the **informed consent** of every analyzed "
+    "developer, and treat findings as **discussion prompts**, not verdicts.\n"
+)
+
+
 class MarkdownReporter(BaseReporter):
-    """Generates beautiful Markdown reports from analysis metrics."""
+    """Generates Markdown reports from analysis metrics.
+
+    Every report opens with an explicit usage notice that downstream readers
+    cannot accidentally drop. Section labels and copy are intentionally
+    neutral and non-stigmatizing.
+    """
 
     def generate(self, metrics: Dict) -> str:
         """Generate a Markdown report."""
         lines = []
-        lines.append("# 📊 Code Analysis Report\n")
+        lines.append("# 📊 Git-History Reflection Report\n")
+        lines.append(USAGE_NOTICE_MD)
 
         for repo_name, repo_metrics in metrics.items():
             lines.append(f"## 📁 Repository: {repo_name}\n")
@@ -37,14 +60,18 @@ class MarkdownReporter(BaseReporter):
             for author in sorted(all_authors):
                 lines.append(f"### 👤 {author}\n")
 
-                # ── Developer Evaluation (if available) ──
+                # ── Per-developer reflection summary (if available) ──
                 eval_data = repo_metrics.get("evaluations", {}).get(author, {})
                 if eval_data:
-                    lines.append("#### 🏆 Developer Evaluation\n")
+                    lines.append("#### 🪞 Reflection Summary (descriptive indicators)\n")
+                    lines.append(
+                        "_Descriptive Git-history indicators — not a performance "
+                        "review. Read with full context._\n"
+                    )
                     score = eval_data.get("overall_score", 0)
                     grade = eval_data.get("grade", "?")
                     verdict = eval_data.get("verdict", "")
-                    lines.append(f"**Overall Score: {score}/100 (Grade: {grade})**\n")
+                    lines.append(f"**Composite Indicator: {score}/100 (Band: {grade})**\n")
                     lines.append(f"> {verdict}\n")
 
                     # Dimension scores
@@ -67,38 +94,48 @@ class MarkdownReporter(BaseReporter):
                             lines.append(f"| {name} | {s:.0f}/100 {bar} |")
                         lines.append("")
 
-                    # Strengths
+                    # Supportive observations
                     strengths = eval_data.get("strengths", [])
                     if strengths:
-                        lines.append("**✅ Strengths:**\n")
+                        lines.append("**✅ Supportive observations:**\n")
                         for s in strengths:
                             lines.append(f"- {s}")
                         lines.append("")
 
-                    # Weaknesses
+                    # Points to consider (neutral, non-stigmatizing)
                     weaknesses = eval_data.get("weaknesses", [])
                     if weaknesses:
-                        lines.append("**❌ Weaknesses:**\n")
+                        lines.append("**🔎 Points to consider (with context):**\n")
                         for w in weaknesses:
                             lines.append(f"- {w}")
                         lines.append("")
 
-                    # Suggestions
+                    # Discussion prompts
                     suggestions = eval_data.get("suggestions", [])
                     if suggestions:
-                        lines.append("**💡 Suggestions:**\n")
+                        lines.append("**💡 Discussion prompts:**\n")
                         for sg in suggestions:
                             lines.append(f"- {sg}")
                         lines.append("")
 
-                # ── Slacking Index ──
+                    notice = eval_data.get("interpretation_notice")
+                    if notice:
+                        lines.append(f"> ℹ️ {notice}\n")
+
+                # ── Cadence-density signals (descriptive only) ──
                 slacking_data = repo_metrics.get("slacking", {}).get(author, {})
                 if slacking_data:
-                    lines.append("#### 🐟 Slacking Index (摸鱼指数)\n")
+                    lines.append("#### 📉 Cadence-density signals (descriptive only)\n")
+                    lines.append(
+                        "_A summary of how sparse / bursty / low-volume the Git "
+                        "activity looks. **Not** a productivity or engagement "
+                        "measure. Many legitimate work patterns produce sparse "
+                        "cadence (architecture, code review, on-call, time-off)._\n"
+                    )
                     idx = slacking_data.get("slacking_index", 0)
-                    level = slacking_data.get("slacking_level_cn", "")
-                    level_en = slacking_data.get("slacking_level", "")
-                    lines.append(f"**Slacking Index: {idx}/100 — {level} ({level_en})**\n")
+                    level = slacking_data.get("cadence_label_cn", slacking_data.get("slacking_level_cn", ""))
+                    level_en = slacking_data.get("cadence_label", slacking_data.get("slacking_level", ""))
+                    lines.append(f"**Cadence-Sparsity Indicator: {idx}/100 — {level_en} / {level}**\n")
 
                     lines.append("| Signal | Value |")
                     lines.append("|--------|-------|")
@@ -114,22 +151,31 @@ class MarkdownReporter(BaseReporter):
 
                     breakdown = slacking_data.get("signal_breakdown", {})
                     if breakdown:
-                        lines.append("**Signal Breakdown:**\n")
-                        lines.append("| Signal | Score |")
-                        lines.append("|--------|-------|")
+                        lines.append("**Signal Breakdown (descriptive components):**\n")
+                        lines.append("| Signal | Component value |")
+                        lines.append("|--------|-----------------|")
                         signal_names = {
-                            "sparsity": "Commit Sparsity",
-                            "trivial_commits": "Trivial Commits",
-                            "disappearance": "Disappearance Acts",
-                            "low_output": "Low Output",
-                            "non_code": "Non-code Only",
-                            "procrastination": "Procrastination",
-                            "copy_paste": "Copy-paste Signal",
+                            "sparsity": "Cadence sparsity",
+                            "trivial_commits": "Trivial-change ratio",
+                            "disappearance": "Long-gap ratio",
+                            "low_output": "Low daily volume",
+                            "non_code": "Non-code-only commits",
+                            "procrastination": "Late-week skew",
+                            "long_gaps": "Long-gap ratio",
+                            "low_volume": "Low daily volume",
+                            "non_code_only": "Non-code-only commits",
+                            "late_week_skew": "Late-week skew",
+                            "add_delete_imbalance": "Add/delete imbalance",
+                            "copy_paste": "Add/delete imbalance",
                         }
                         for key, val in breakdown.items():
                             name = signal_names.get(key, key)
                             lines.append(f"| {name} | {val} |")
                         lines.append("")
+
+                    notice = slacking_data.get("interpretation_notice")
+                    if notice:
+                        lines.append(f"> ℹ️ {notice}\n")
 
                 # ── Commit Patterns ──
                 commit_data = repo_metrics.get("commit_patterns", {}).get(author, {})
@@ -318,7 +364,11 @@ class MarkdownReporter(BaseReporter):
         return "\n".join(lines)
 
     def _generate_evaluation_leaderboard(self, metrics: Dict) -> str:
-        """Generate a leaderboard ranked by overall evaluation score."""
+        """Generate an unranked overview table of composite indicators.
+
+        Intentionally NOT a leaderboard: rows are sorted alphabetically by
+        author and the table is framed as an overview, never as a ranking.
+        """
         all_evals = {}
         for repo_name, repo_metrics in metrics.items():
             evals = repo_metrics.get("evaluations", {})
@@ -329,22 +379,31 @@ class MarkdownReporter(BaseReporter):
             return ""
 
         lines = []
-        lines.append("## 🏆 Developer Leaderboard\n")
-        lines.append("| Rank | Developer | Score | Grade | Verdict |")
-        lines.append("|------|-----------|-------|-------|---------|")
+        lines.append("## 📋 Composite-Indicator Overview\n")
+        lines.append(
+            "_Descriptive Git-history indicators per author. **Not** a ranking, "
+            "performance review, or comparison of human worth. Sorted "
+            "alphabetically — please do not re-order this table to create a "
+            "ranking out of context._\n"
+        )
+        lines.append("| Developer | Composite Indicator | Band | One-line Summary |")
+        lines.append("|-----------|---------------------|------|------------------|")
 
-        ranked = sorted(all_evals.items(), key=lambda x: -x[1].get("overall_score", 0))
-        for i, (author, ev) in enumerate(ranked, 1):
+        for author, ev in sorted(all_evals.items(), key=lambda x: x[0].lower()):
             score = ev.get("overall_score", 0)
             grade = ev.get("grade", "?")
             verdict = ev.get("verdict", "")
-            lines.append(f"| {i} | {author} | {score} | {grade} | {verdict} |")
+            lines.append(f"| {author} | {score} | {grade} | {verdict} |")
 
         lines.append("")
         return "\n".join(lines)
 
     def _generate_slacking_leaderboard(self, metrics: Dict) -> str:
-        """Generate a slacking index leaderboard."""
+        """Generate an unranked overview of cadence-density signals.
+
+        Intentionally NOT a leaderboard. Rows are alphabetical and the table
+        is framed as a descriptive overview, never as a ranking.
+        """
         all_slacking = {}
         for repo_name, repo_metrics in metrics.items():
             slacking = repo_metrics.get("slacking", {})
@@ -355,16 +414,21 @@ class MarkdownReporter(BaseReporter):
             return ""
 
         lines = []
-        lines.append("## 🐟 Slacking Index Leaderboard (摸鱼排行榜)\n")
-        lines.append("| Rank | Developer | Slacking Index | Level | Lines/Day |")
-        lines.append("|------|-----------|----------------|-------|-----------|")
+        lines.append("## 📉 Cadence-Density Overview\n")
+        lines.append(
+            "_Descriptive cadence-sparsity signals per author. **Not** a "
+            "productivity or engagement ranking. Many legitimate work patterns "
+            "produce sparse cadence (architecture, code review, on-call, "
+            "time-off). Sorted alphabetically._\n"
+        )
+        lines.append("| Developer | Cadence-Sparsity Indicator | Band | Lines/Active Day |")
+        lines.append("|-----------|----------------------------|------|------------------|")
 
-        ranked = sorted(all_slacking.items(), key=lambda x: -x[1].get("slacking_index", 0))
-        for i, (author, sd) in enumerate(ranked, 1):
+        for author, sd in sorted(all_slacking.items(), key=lambda x: x[0].lower()):
             idx = sd.get("slacking_index", 0)
-            level = sd.get("slacking_level_cn", "")
+            level = sd.get("cadence_label", sd.get("slacking_level", ""))
             lpd = sd.get("lines_per_active_day", 0)
-            lines.append(f"| {i} | {author} | {idx}/100 | {level} | {lpd} |")
+            lines.append(f"| {author} | {idx}/100 | {level} | {lpd} |")
 
         lines.append("")
         return "\n".join(lines)

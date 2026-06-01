@@ -1,8 +1,12 @@
 """
-PDF Reporter - Generates analysis reports in PDF format.
+PDF Reporter - Generates Git-history reflection reports in PDF format.
 
 Uses reportlab for direct PDF generation with styled tables and text.
 Falls back to HTML-to-PDF conversion if weasyprint/pdfkit/xhtml2pdf is available.
+
+Reports always carry an explicit usage notice clarifying that the output is
+a DESCRIPTIVE summary of Git history only and must NOT be used for performance
+reviews, ranking, or HR decisions.
 """
 
 import logging
@@ -161,8 +165,34 @@ class PdfReporter(BaseReporter):
         )
 
         elements = []
-        elements.append(Paragraph("📊 Code Analysis Report", title_style))
+        elements.append(Paragraph("📊 Git-History Reflection Report", title_style))
         elements.append(Spacer(1, 6))
+
+        usage_notice_style = ParagraphStyle(
+            "UsageNotice",
+            parent=styles["Normal"],
+            fontSize=9,
+            textColor=HexColor("#92400e"),
+            backColor=HexColor("#fffbeb"),
+            borderColor=HexColor("#f59e0b"),
+            borderPadding=8,
+            borderWidth=1,
+            leftIndent=4,
+            rightIndent=4,
+            spaceBefore=4,
+            spaceAfter=10,
+        )
+        elements.append(Paragraph(
+            "<b>⚠ Usage notice — please read first.</b> This report is a "
+            "<b>descriptive summary of Git history only</b>. It does <b>not</b> measure "
+            "productivity, engagement, or the value of any individual’s contribution. "
+            "Code review, design, mentoring, on-call, ops, and many other contributions "
+            "are invisible to Git history. <b>Do not</b> use this report for performance "
+            "evaluation, ranking, compensation, promotion, discipline, or any HR decision. "
+            "Run it only with the <b>informed consent</b> of every analyzed developer, "
+            "and treat findings as <b>discussion prompts, not verdicts</b>.",
+            usage_notice_style,
+        ))
 
         primary_color = HexColor("#4f46e5")
         header_bg = HexColor("#f1f5f9")
@@ -197,14 +227,14 @@ class PdfReporter(BaseReporter):
             for author in sorted(all_authors):
                 elements.append(Paragraph(f"👤 {author}", h3_style))
 
-                # ── Evaluation ──
+                # ── Reflection Summary ──
                 ev = repo_metrics.get("evaluations", {}).get(author, {})
                 if ev:
-                    elements.append(Paragraph("🏆 Developer Evaluation", h4_style))
+                    elements.append(Paragraph("🪞 Reflection Summary (descriptive indicators)", h4_style))
                     score = ev.get("overall_score", 0)
                     grade = ev.get("grade", "?")
                     elements.append(Paragraph(
-                        f"Overall Score: {score}/100 (Grade: {grade})", score_style
+                        f"Composite Indicator: {score}/100 (Band: {grade})", score_style
                     ))
                     verdict = ev.get("verdict", "")
                     if verdict:
@@ -229,43 +259,62 @@ class PdfReporter(BaseReporter):
                             ["Dimension", "Score", "Bar"], dim_rows
                         ))
 
-                    # Strengths
+                    # Supportive observations
                     for s in ev.get("strengths", []):
                         elements.append(Paragraph(f"✅ {s}", strength_style))
 
                     if ev.get("strengths"):
                         elements.append(Spacer(1, 4))
 
-                    # Weaknesses
+                    # Points to consider (neutral)
                     for w in ev.get("weaknesses", []):
-                        elements.append(Paragraph(f"❌ {w}", weakness_style))
+                        elements.append(Paragraph(f"🔎 {w}", weakness_style))
 
                     if ev.get("weaknesses"):
                         elements.append(Spacer(1, 4))
 
-                    # Suggestions
+                    # Discussion prompts
                     for sg in ev.get("suggestions", []):
                         elements.append(Paragraph(f"💡 {sg}", suggestion_style))
 
+                    if ev.get("interpretation_notice"):
+                        elements.append(Paragraph(
+                            f"ℹ {ev['interpretation_notice']}", verdict_style
+                        ))
+
                     elements.append(Spacer(1, 6))
 
-                # ── Slacking Index ──
+                # ── Cadence-density signals (descriptive only) ──
                 sl = repo_metrics.get("slacking", {}).get(author, {})
                 if sl:
-                    elements.append(Paragraph("🐟 Slacking Index (摸鱼指数)", h4_style))
-                    idx = sl.get("slacking_index", 0)
-                    level = sl.get("slacking_level_cn", "")
                     elements.append(Paragraph(
-                        f"Index: {idx}/100 — {level}", score_style
+                        "📉 Cadence-density signals (descriptive only)", h4_style
+                    ))
+                    elements.append(Paragraph(
+                        "<i>A summary of how sparse / bursty / low-volume the Git "
+                        "activity looks. Not a productivity or engagement measure.</i>",
+                        verdict_style,
+                    ))
+                    idx = sl.get("slacking_index", 0)
+                    level = (
+                        sl.get("cadence_label")
+                        or sl.get("slacking_level", "")
+                    )
+                    elements.append(Paragraph(
+                        f"Cadence-Sparsity Indicator: {idx}/100 — {level}", score_style
                     ))
                     sl_rows = [
                         ["Activity Ratio", f"{sl.get('activity_ratio', 0):.1%}"],
-                        ["Trivial Commit Ratio", f"{sl.get('trivial_commit_ratio', 0):.1%}"],
-                        ["Large Gap Ratio", f"{sl.get('large_gap_ratio', 0):.1%}"],
+                        ["Trivial-change Ratio", f"{sl.get('trivial_commit_ratio', 0):.1%}"],
+                        ["Long-gap Ratio", f"{sl.get('large_gap_ratio', 0):.1%}"],
                         ["Lines/Active Day", str(sl.get("lines_per_active_day", 0))],
-                        ["Non-code Commit Ratio", f"{sl.get('non_code_commit_ratio', 0):.1%}"],
+                        ["Non-code-only Commit Ratio", f"{sl.get('non_code_commit_ratio', 0):.1%}"],
                     ]
                     elements.append(make_table(["Signal", "Value"], sl_rows))
+                    if sl.get("interpretation_notice"):
+                        elements.append(Paragraph(
+                            f"ℹ {sl['interpretation_notice']}", verdict_style
+                        ))
 
                 # ── Commit Patterns ──
                 cd = repo_metrics.get("commit_patterns", {}).get(author, {})
@@ -330,40 +379,52 @@ class PdfReporter(BaseReporter):
                     spaceBefore=8, spaceAfter=8,
                 ))
 
-            # ── Leaderboard ──
+            # ── Composite-Indicator Overview (alphabetical, NOT a leaderboard) ──
             evals = repo_metrics.get("evaluations", {})
             if evals and len(evals) >= 1:
-                elements.append(Paragraph("🏆 Developer Leaderboard", h2_style))
-                ranked = sorted(evals.items(), key=lambda x: -x[1].get("overall_score", 0))
+                elements.append(Paragraph("📋 Composite-Indicator Overview", h2_style))
+                elements.append(Paragraph(
+                    "<i>Descriptive Git-history indicators per author. NOT a ranking, "
+                    "performance review, or comparison of human worth. Sorted alphabetically.</i>",
+                    verdict_style,
+                ))
+                ranked = sorted(evals.items(), key=lambda x: x[0].lower())
                 lb_rows = []
-                for i, (a, ev) in enumerate(ranked, 1):
-                    medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, str(i))
+                for a, ev in ranked:
                     lb_rows.append([
-                        medal, a,
+                        a,
                         str(ev.get("overall_score", 0)),
                         ev.get("grade", "?"),
                         ev.get("verdict", "")[:60],
                     ])
                 elements.append(make_table(
-                    ["Rank", "Developer", "Score", "Grade", "Verdict"],
+                    ["Developer", "Composite Indicator", "Band", "One-line summary"],
                     lb_rows,
                 ))
 
-            # ── Slacking Leaderboard ──
+            # ── Cadence-Density Overview (alphabetical, NOT a leaderboard) ──
             slacking = repo_metrics.get("slacking", {})
             if slacking and len(slacking) >= 1:
-                elements.append(Paragraph("🐟 Slacking Leaderboard (摸鱼排行榜)", h2_style))
-                ranked = sorted(slacking.items(), key=lambda x: -x[1].get("slacking_index", 0))
+                elements.append(Paragraph("📉 Cadence-Density Overview", h2_style))
+                elements.append(Paragraph(
+                    "<i>Descriptive cadence-sparsity signals per author. NOT a productivity "
+                    "or engagement ranking. Many legitimate work patterns produce sparse "
+                    "cadence (architecture, code review, on-call, time-off). "
+                    "Sorted alphabetically.</i>",
+                    verdict_style,
+                ))
+                ranked = sorted(slacking.items(), key=lambda x: x[0].lower())
                 sl_rows = []
-                for i, (a, sd) in enumerate(ranked, 1):
+                for a, sd in ranked:
+                    level = sd.get("cadence_label") or sd.get("slacking_level", "")
                     sl_rows.append([
-                        str(i), a,
+                        a,
                         f"{sd.get('slacking_index', 0)}/100",
-                        sd.get("slacking_level_cn", ""),
+                        level,
                         str(sd.get("lines_per_active_day", 0)),
                     ])
                 elements.append(make_table(
-                    ["Rank", "Developer", "Index", "Level", "Lines/Day"],
+                    ["Developer", "Cadence-Sparsity Indicator", "Band", "Lines/Active Day"],
                     sl_rows,
                 ))
 

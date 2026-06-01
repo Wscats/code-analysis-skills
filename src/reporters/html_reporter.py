@@ -1,11 +1,16 @@
 """
-HTML Reporter - Generates comprehensive analysis reports in HTML format.
+HTML Reporter - Generates Git-history reflection reports in HTML format.
 
 Uses Jinja2 templates for rich, styled HTML output with:
-  - Developer evaluations (score, grade, strengths, weaknesses, suggestions)
-  - Slacking index visualization
-  - Score bar charts
-  - Comparison tables and leaderboards
+  - Per-developer reflection summary (composite descriptive indicator,
+    supportive observations, points to consider, discussion prompts)
+  - Cadence-density signal visualization (descriptive only)
+  - Indicator bar charts
+  - Alphabetical overview tables (intentionally NOT leaderboards)
+
+Reports always carry an explicit usage notice clarifying that the output is
+a DESCRIPTIVE summary of Git history only and must NOT be used for performance
+reviews, ranking, or HR decisions.
 """
 
 from typing import Dict
@@ -236,7 +241,23 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>📊 Code Analysis Report</h1>
+        <h1>📊 Git-History Reflection Report</h1>
+
+        <div class="card" style="border-left: 6px solid var(--warning); background: #fffbeb;">
+            <h3 style="color: #92400e; margin-top: 0">⚠️ Usage notice — please read first</h3>
+            <p>
+                This report is a <strong>descriptive summary of Git history only</strong>.
+                It does <strong>not</strong> measure productivity, engagement, or the value of any
+                individual’s contribution. Code review, design, mentoring, on-call, ops,
+                and many other contributions are invisible to Git history.
+            </p>
+            <p>
+                <strong>Do not</strong> use this report for performance evaluation, ranking,
+                compensation, promotion, discipline, or any HR decision. Run it only with
+                the <strong>informed consent</strong> of every analyzed developer, and treat findings
+                as <strong>discussion prompts, not verdicts</strong>.
+            </p>
+        </div>
 
         {% for repo_name, repo_metrics in metrics.items() %}
         <h2>📁 {{ repo_name }}</h2>
@@ -256,10 +277,13 @@ HTML_TEMPLATE = """
         <div class="card">
             <h3>👤 {{ author }}</h3>
 
-            {# ── Developer Evaluation ── #}
+            {# ── Reflection Summary ── #}
             {% set ev = repo_metrics.get('evaluations', {}).get(author, {}) %}
             {% if ev %}
-            <h4>🏆 Developer Evaluation</h4>
+            <h4>🪞 Reflection Summary (descriptive indicators)</h4>
+            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0.75rem;">
+                Descriptive Git-history indicators — not a performance review. Read with full context.
+            </p>
             <div class="eval-header">
                 <div class="score-circle score-{{ ev.grade | lower }}">
                     {{ ev.overall_score }}
@@ -297,37 +321,51 @@ HTML_TEMPLATE = """
                 {% endfor %}
             </table>
 
-            {# Strengths #}
+            {# Supportive observations #}
             {% if ev.strengths %}
-            <h4 style="color: #166534">Strengths</h4>
+            <h4 style="color: #166534">Supportive observations</h4>
             {% for s in ev.strengths %}
             <div class="strength-item">{{ s }}</div>
             {% endfor %}
             {% endif %}
 
-            {# Weaknesses #}
+            {# Points to consider (neutral) #}
             {% if ev.weaknesses %}
-            <h4 style="color: #991b1b; margin-top: 1rem">Weaknesses</h4>
+            <h4 style="color: #991b1b; margin-top: 1rem">Points to consider (with context)</h4>
             {% for w in ev.weaknesses %}
             <div class="weakness-item">{{ w }}</div>
             {% endfor %}
             {% endif %}
 
-            {# Suggestions #}
+            {# Discussion prompts #}
             {% if ev.suggestions %}
-            <h4 style="color: #1e40af; margin-top: 1rem">Suggestions</h4>
+            <h4 style="color: #1e40af; margin-top: 1rem">Discussion prompts</h4>
             {% for sg in ev.suggestions %}
             <div class="suggestion-item">{{ sg }}</div>
             {% endfor %}
             {% endif %}
+
+            {% if ev.interpretation_notice %}
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.75rem; font-style: italic;">
+                ℹ️ {{ ev.interpretation_notice }}
+            </p>
+            {% endif %}
             {% endif %}
 
-            {# ── Slacking Index ── #}
+            {# ── Cadence-density signals (descriptive only) ── #}
             {% set sl = repo_metrics.get('slacking', {}).get(author, {}) %}
             {% if sl %}
-            <h4>🐟 Slacking Index (摸鱼指数)</h4>
+            <h4>📉 Cadence-density signals (descriptive only)</h4>
+            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0.5rem;">
+                A summary of how sparse / bursty / low-volume the Git activity
+                looks. <strong>Not</strong> a productivity or engagement measure.
+                Many legitimate work patterns produce sparse cadence (architecture,
+                code review, on-call, time-off).
+            </p>
             <div class="slacking-label">
-                {{ sl.slacking_index }}/100 — {{ sl.slacking_level_cn }} ({{ sl.slacking_level }})
+                {{ sl.slacking_index }}/100 —
+                {{ sl.cadence_label or sl.slacking_level }}
+                / {{ sl.cadence_label_cn or sl.slacking_level_cn }}
             </div>
             <div class="slacking-meter">
                 <div class="slacking-indicator" style="left: {{ sl.slacking_index }}%"></div>
@@ -335,11 +373,16 @@ HTML_TEMPLATE = """
             <table>
                 <tr><th>Signal</th><th>Value</th></tr>
                 <tr><td>Activity Ratio</td><td>{{ "%.1f%%" | format(sl.activity_ratio * 100) }}</td></tr>
-                <tr><td>Trivial Commit Ratio</td><td>{{ "%.1f%%" | format(sl.trivial_commit_ratio * 100) }}</td></tr>
-                <tr><td>Large Gap Ratio</td><td>{{ "%.1f%%" | format(sl.large_gap_ratio * 100) }}</td></tr>
+                <tr><td>Trivial-change Ratio</td><td>{{ "%.1f%%" | format(sl.trivial_commit_ratio * 100) }}</td></tr>
+                <tr><td>Long-gap Ratio</td><td>{{ "%.1f%%" | format(sl.large_gap_ratio * 100) }}</td></tr>
                 <tr><td>Lines/Active Day</td><td>{{ sl.lines_per_active_day }}</td></tr>
-                <tr><td>Non-code Commit Ratio</td><td>{{ "%.1f%%" | format(sl.non_code_commit_ratio * 100) }}</td></tr>
+                <tr><td>Non-code-only Commit Ratio</td><td>{{ "%.1f%%" | format(sl.non_code_commit_ratio * 100) }}</td></tr>
             </table>
+            {% if sl.interpretation_notice %}
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem; font-style: italic;">
+                ℹ️ {{ sl.interpretation_notice }}
+            </p>
+            {% endif %}
             {% endif %}
 
             {# ── Commit Patterns ── #}
@@ -449,15 +492,17 @@ HTML_TEMPLATE = """
 
         {% for repo_name, repo_metrics in metrics.items() %}
         {% if repo_metrics.get('evaluations') %}
-        <h2>🏆 Developer Leaderboard</h2>
+        <h2>📋 Composite-Indicator Overview</h2>
         <div class="card">
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">
+                Descriptive Git-history indicators per author. <strong>Not</strong> a ranking,
+                performance review, or comparison of human worth. Sorted alphabetically &mdash;
+                please do not re-order this table to create a ranking out of context.
+            </p>
             <table class="comparison-table">
-                <tr><th>Rank</th><th>Developer</th><th>Score</th><th>Grade</th><th>Verdict</th></tr>
-                {% for author, ev in repo_metrics.get('evaluations', {}).items() | sort(attribute='1.overall_score', reverse=true) %}
+                <tr><th>Developer</th><th>Composite Indicator</th><th>Band</th><th>One-line summary</th></tr>
+                {% for author, ev in repo_metrics.get('evaluations', {}).items() | sort(attribute='0') %}
                 <tr>
-                    <td class="leaderboard-rank {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}">
-                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
-                    </td>
                     <td><strong>{{ author }}</strong></td>
                     <td class="metric-value">{{ ev.overall_score }}</td>
                     <td><span class="badge badge-info">{{ ev.grade }}</span></td>
@@ -468,18 +513,23 @@ HTML_TEMPLATE = """
         </div>
         {% endif %}
 
-        {# ── Slacking Leaderboard ── #}
+        {# ── Cadence-density overview (alphabetical, NOT a leaderboard) ── #}
         {% if repo_metrics.get('slacking') %}
-        <h2>🐟 Slacking Index Leaderboard (摸鱼排行榜)</h2>
+        <h2>📉 Cadence-Density Overview</h2>
         <div class="card">
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">
+                Descriptive cadence-sparsity signals per author. <strong>Not</strong> a
+                productivity or engagement ranking. Many legitimate work patterns produce
+                sparse cadence (architecture, code review, on-call, time-off).
+                Sorted alphabetically.
+            </p>
             <table class="comparison-table">
-                <tr><th>Rank</th><th>Developer</th><th>Index</th><th>Level</th><th>Lines/Day</th></tr>
-                {% for author, sl in repo_metrics.get('slacking', {}).items() | sort(attribute='1.slacking_index', reverse=true) %}
+                <tr><th>Developer</th><th>Cadence-Sparsity Indicator</th><th>Band</th><th>Lines/Active Day</th></tr>
+                {% for author, sl in repo_metrics.get('slacking', {}).items() | sort(attribute='0') %}
                 <tr>
-                    <td>{{ loop.index }}</td>
                     <td><strong>{{ author }}</strong></td>
                     <td class="metric-value">{{ sl.slacking_index }}/100</td>
-                    <td>{{ sl.slacking_level_cn }}</td>
+                    <td>{{ sl.cadence_label or sl.slacking_level }}</td>
                     <td>{{ sl.lines_per_active_day }}</td>
                 </tr>
                 {% endfor %}

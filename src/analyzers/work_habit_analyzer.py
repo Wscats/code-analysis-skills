@@ -1,11 +1,36 @@
 """
-Work Habit Analyzer - Analyzes developer work time patterns.
+Work Habit Analyzer - Aggregates Git commit timestamps into descriptive
+work-time pattern statistics.
+
+⚠️  IMPORTANT — INTENDED USE & LIMITATIONS
+
+The metrics produced here (peak hour, weekend ratio, late-night ratio,
+streaks, average gap between commits) are extracted from Git timestamps,
+which only reflect *when commits were authored* — not when the developer
+was working, resting, on call, in meetings, mentoring, or in pair sessions.
+Time-zone misconfiguration, batched pushes, squash merges, automation, and
+work-from-home patterns can all distort these signals heavily.
+
+These metrics are intended for:
+  - Self-reflection by the developer being analyzed (with their consent)
+  - Aggregate, anonymized team-health diagnostics (e.g., is the team as a
+    whole working unsustainable hours?)
+
+They MUST NOT be used to:
+  - Evaluate, rank, discipline, or compare individual employees
+  - Infer effort, dedication, or "work-life balance" of a specific person
+  - Drive performance reviews, promotions, or compensation decisions
+  - Surveil employees without informed consent
+
+By using this module you accept responsibility for ensuring informed consent
+from every developer whose timestamps are analyzed, and for compliance with
+applicable privacy and labor regulations.
 
 Metrics include:
   - Preferred working hours distribution
   - Weekday vs weekend activity
   - Day-of-week distribution
-  - Late night / early morning coding ratio
+  - Late night / early morning coding ratio (descriptive only)
   - Longest consecutive coding streaks
   - Average time between commits
 """
@@ -21,7 +46,13 @@ logger = logging.getLogger(__name__)
 
 
 class WorkHabitAnalyzer(BaseAnalyzer):
-    """Analyzes work time patterns and habits for each author."""
+    """Aggregates commit timestamps into descriptive work-time statistics.
+
+    Output is intended for *aggregate* team-health observation and
+    *self-reflection* — not for individual performance evaluation.
+    Every per-author result includes an ``interpretation_notice`` field
+    that downstream renderers must surface to the reader.
+    """
 
     # Time slot definitions
     EARLY_MORNING = range(5, 9)    # 05:00 - 08:59
@@ -101,6 +132,13 @@ class WorkHabitAnalyzer(BaseAnalyzer):
                 "peak_hour": peak_hour,
                 "longest_streak_days": longest_streak,
                 "avg_gap_between_commits_hours": avg_gap,
+                "interpretation_notice": (
+                    "Descriptive Git-timestamp statistic only. Reflects when "
+                    "commits were authored, NOT when the developer was working "
+                    "or resting. Time-zone, batched pushes, squash merges, and "
+                    "automation can distort it. Must not be used for performance "
+                    "evaluation, ranking, or HR decisions."
+                ),
             }
 
         return result
