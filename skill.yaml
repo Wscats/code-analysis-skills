@@ -1,5 +1,5 @@
 name: code-analysis-skills
-version: 1.0.7
+version: 1.0.8
 description: >
   A Git-history *self-reflection* tool. By default analyses ONLY commits
   authored by the current local Git user; analysing other developers requires

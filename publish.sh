@@ -20,10 +20,10 @@ set -euo pipefail
 # logged-in account, not the slug.
 SLUG="${SLUG:-code-analysis-skills}"
 OWNER="${OWNER:-wscats}"
-VERSION="${VERSION:-v1.0.7}"
+VERSION="${VERSION:-v1.0.8}"
 NAME="${NAME:-Code Analysis Skills}"
 TAGS="${TAGS:-latest,git,code-analysis,reflection}"
-CHANGELOG="${CHANGELOG:-Reframed as a Git-history reflection tool: descriptive metrics only, removed people-ranking framing, added mandatory usage-policy gate (--i-have-consent), neutralized report wording, replaced leaderboards with alphabetical overviews.}"
+CHANGELOG="${CHANGELOG:-Structural safety overhaul: self-scope by default; cross-author analysis requires --multi-author-team-retro plus per-person --consented-author; removed env-var bypass for the consent gate; dropped composite 0-100 score, S/A/B/C/D/E/F letter band, verdict line, leaderboard and cross-author comparison tables from every output format; dropped pylint dependency; removed legacy report.md sample.}"
 
 # ─── Resolve script directory (the skill folder) ────────────────────────────
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

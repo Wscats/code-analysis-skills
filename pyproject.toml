@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "code-analysis-skills"
-version = "1.0.7"
+version = "1.0.8"
 description = "Git-history reflection tool for self-introspection. Self-scope by default; multi-author analysis requires explicit, per-person consent. Not for HR / ranking / surveillance use."
 readme = "README.md"
 license = {text = "MIT"}
