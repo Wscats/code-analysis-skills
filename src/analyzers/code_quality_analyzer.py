@@ -36,14 +36,26 @@ LARGE_COMMIT_THRESHOLD = 500  # lines changed
 
 
 class CodeQualityAnalyzer(BaseAnalyzer):
-    """Analyzes code quality signals per author from Git history."""
+    """Computes descriptive code-quality artefacts per consented identity.
+
+    The orchestrator restricts ``BaseAnalyzer._get_commits`` to either the
+    local Git user (self-scope, default) or to authors who have given
+    informed consent (``--multi-author-team-retro`` mode). This analyzer
+    only operates on commits the orchestrator has already authorised.
+
+    Output is descriptive only and MUST NOT be used for evaluation,
+    ranking, surveillance, or HR decisions.
+    """
 
     def analyze(self) -> Dict:
         """
-        Analyze code quality signals for each author.
+        Compute descriptive code-quality artefacts on the *already-scoped*
+        commit set.
 
         Returns:
-            Dict keyed by author name with code quality metrics.
+            Dict keyed by the consented Git identity with descriptive
+            code-quality artefacts. In self-scope mode this dict has at
+            most one entry (the local Git user).
         """
         author_data = defaultdict(lambda: {
             "total_commits": 0,

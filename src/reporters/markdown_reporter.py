@@ -167,8 +167,6 @@ class MarkdownReporter(BaseReporter):
         lines.append(f"| Avg gap (hours) | {sd.get('avg_gap_hours', 0)} |")
         lines.append(f"| Lines / active day | {sd.get('lines_per_active_day', 0)} |")
         lines.append(f"| Non-code-only commit ratio | {sd.get('non_code_commit_ratio', 0):.1%} |")
-        lines.append(f"| Friday ratio (weekday) | {sd.get('friday_ratio', 0):.1%} |")
-        lines.append(f"| Monday ratio (weekday) | {sd.get('monday_ratio', 0):.1%} |")
         lines.append("")
 
         notice = sd.get("interpretation_notice")

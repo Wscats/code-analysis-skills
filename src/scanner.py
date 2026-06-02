@@ -1,5 +1,24 @@
 """
-Repository Scanner - Discovers Git repositories.
+Repository Scanner - Discovers Git repositories on the local filesystem.
+
+⚠️  IMPORTANT — SCOPE & CONSENT MODEL
+
+This module only enumerates ``.git`` directories under a path the operator
+has explicitly passed via ``-r/--repo``. It does NOT itself perform any
+Git-history analysis. Whatever repositories it discovers are then handed
+to the per-repo analyzers, which still operate under the
+self-scope-by-default + ``--multi-author-team-retro`` consent model
+enforced by ``src.main``:
+
+  * In self-scope mode (default), each discovered repository is filtered
+    down to the local Git user's own commits before any analyzer runs.
+  * In ``--multi-author-team-retro`` mode, only the explicitly listed
+    ``--consented-author`` identities are analysed.
+
+Using ``--scan-all`` therefore does NOT widen the people-data exposure;
+it only saves the operator the trouble of running the tool once per
+repository. The operator is still responsible for ensuring that every
+path passed in ``-r`` is one they have consent to analyse.
 """
 
 import os
@@ -18,8 +37,14 @@ class RepoScanner:
         """
         Validate and return info for a single Git repository.
 
+        The discovered repository is still subject to the consent model
+        enforced by ``src.main`` (self-scope by default; opt-in multi-author
+        team retro otherwise). This method itself performs no commit-level
+        analysis and exposes no commit-level data.
+
         Args:
-            path: Path to a Git repository.
+            path: Path to a Git repository the operator has explicitly
+                passed in via ``-r/--repo``.
 
         Returns:
             A list containing one repo info dict, or empty if invalid.
@@ -37,10 +62,21 @@ class RepoScanner:
 
     def scan_directory(self, root_path: str, max_depth: int = 5) -> List[Dict]:
         """
-        Recursively scan a directory for Git repositories.
+        Recursively walk a directory the operator has explicitly passed in
+        via ``-r/--repo`` (with ``--scan-all``) and list every Git
+        repository found underneath.
+
+        This method only enumerates repositories; it does not read commit
+        history, identify contributors, or extract any people data. Each
+        discovered repository is later analysed under the consent model
+        enforced by ``src.main`` (self-scope by default; opt-in multi-author
+        team retro otherwise), so adding a repository to the list does not
+        broaden the people-data exposure.
 
         Args:
-            root_path: Root directory to scan.
+            root_path: Root directory the operator has explicitly chosen to
+                scan. The operator is responsible for ensuring they have
+                consent to analyse every repository discovered underneath.
             max_depth: Maximum directory depth to traverse.
 
         Returns:
@@ -63,7 +99,13 @@ class RepoScanner:
         current_depth: int,
         max_depth: int,
     ):
-        """Recursively walk directories to find .git folders."""
+        """Recursively walk directories to find ``.git`` folders.
+
+        This helper performs filesystem enumeration only. It does not
+        access any commit history, contributor list, or other people data;
+        every per-repository commit-level operation is gated by the
+        consent model in ``src.main``.
+        """
         if current_depth > max_depth:
             return
 

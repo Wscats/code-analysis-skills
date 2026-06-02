@@ -122,8 +122,11 @@ python -m src.main --i-have-consent -r /path/to/repo
 # Scan all repositories under a directory (only if you own them or have consent)
 python -m src.main --i-have-consent -r /path/to/projects --scan-all
 
-# Limit to your own author identity for self-reflection
-python -m src.main --i-have-consent -r /path/to/repo -a "Your Name"
+# Consented multi-author team retrospective (every named author must have given informed consent)
+python -m src.main --i-have-consent --multi-author-team-retro \
+    --consented-author "Alice <alice@example.com>" \
+    --consented-author "Bob <bob@example.com>" \
+    -r /path/to/repo
 
 # Specify date range + HTML output
 python -m src.main --i-have-consent -r /path/to/repo -s 2024-01-01 -u 2024-12-31 -f html -o report.html

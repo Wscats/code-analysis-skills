@@ -46,12 +46,19 @@ logger = logging.getLogger(__name__)
 
 
 class WorkHabitAnalyzer(BaseAnalyzer):
-    """Aggregates commit timestamps into descriptive work-time statistics.
+    """Aggregates commit timestamps into descriptive cadence-of-the-week
+    statistics per consented identity.
 
-    Output is intended for *aggregate* team-health observation and
-    *self-reflection* — not for individual performance evaluation.
-    Every per-author result includes an ``interpretation_notice`` field
-    that downstream renderers must surface to the reader.
+    The orchestrator restricts ``BaseAnalyzer._get_commits`` to either the
+    local Git user (self-scope, default) or to authors who have given
+    informed consent (``--multi-author-team-retro`` mode). This analyzer
+    only operates on commits the orchestrator has already authorised.
+
+    Output is intended for *self-reflection* ("is my own commit cadence
+    what I want it to be?") — not for individual performance evaluation,
+    attendance monitoring, or work-time auditing. Every result includes an
+    ``interpretation_notice`` field that downstream renderers must surface
+    to the reader.
     """
 
     # Time slot definitions
@@ -66,10 +73,13 @@ class WorkHabitAnalyzer(BaseAnalyzer):
 
     def analyze(self) -> Dict:
         """
-        Analyze work habits for each author.
+        Compute descriptive cadence-of-the-week statistics on the
+        *already-scoped* commit set.
 
         Returns:
-            Dict keyed by author name with work habit metrics.
+            Dict keyed by the consented Git identity with descriptive
+            cadence-of-the-week statistics. In self-scope mode this dict
+            has at most one entry (the local Git user).
         """
         author_data = defaultdict(lambda: {
             "commit_times": [],

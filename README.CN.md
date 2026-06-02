@@ -56,8 +56,11 @@ python -m src.main --i-have-consent -r /path/to/repo
 # 递归扫描目录下所有 Git 仓库
 python -m src.main --i-have-consent -r /path/to/projects --scan-all
 
-# 仅分析自己（自查推荐）
-python -m src.main --i-have-consent -r /path/to/repo -a "Your Name"
+# 已获全员知情同意的多作者团队复盘（每位被分析者都需先同意）
+python -m src.main --i-have-consent --multi-author-team-retro \
+    --consented-author "Alice <alice@example.com>" \
+    --consented-author "Bob <bob@example.com>" \
+    -r /path/to/repo
 
 # 按日期范围过滤
 python -m src.main --i-have-consent -r /path/to/repo -s 2024-01-01 -u 2024-12-31

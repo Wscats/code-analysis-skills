@@ -41,12 +41,18 @@ logger = logging.getLogger(__name__)
 
 
 class EfficiencyAnalyzer(BaseAnalyzer):
-    """Aggregates Git diff statistics into descriptive code-change metrics.
+    """Aggregates Git diff statistics into descriptive code-change markers
+    per consented identity.
+
+    The orchestrator restricts ``BaseAnalyzer._get_commits`` to either the
+    local Git user (self-scope, default) or to authors who have given
+    informed consent (``--multi-author-team-retro`` mode). This analyzer
+    only operates on commits the orchestrator has already authorised.
 
     Output is intended for *aggregate* team-health observation and
     *self-reflection* — not for individual performance evaluation.
-    Every per-author result includes an ``interpretation_notice`` field
-    that downstream renderers must surface to the reader.
+    Every result includes an ``interpretation_notice`` field that downstream
+    renderers must surface to the reader.
     """
 
     # If a file is modified again within this many days, count it as rework
@@ -54,10 +60,13 @@ class EfficiencyAnalyzer(BaseAnalyzer):
 
     def analyze(self) -> Dict:
         """
-        Analyze development efficiency for each author.
+        Compute descriptive code-change markers on the *already-scoped*
+        commit set.
 
         Returns:
-            Dict keyed by author name with efficiency metrics.
+            Dict keyed by the consented Git identity with descriptive
+            code-change markers. In self-scope mode this dict has at most
+            one entry (the local Git user).
         """
         author_data = defaultdict(lambda: {
             "commits": [],
@@ -156,7 +165,7 @@ class EfficiencyAnalyzer(BaseAnalyzer):
             bus_factors.append(len(owners))
         avg_bus_factor = round(sum(bus_factors) / len(bus_factors), 2) if bus_factors else 0
 
-        # Attach bus factor to each author's result
+        # Attach bus factor to the result of each consented identity
         for author in result:
             result[author]["repo_avg_bus_factor"] = avg_bus_factor
 

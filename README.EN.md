@@ -65,8 +65,11 @@ python -m src.main --i-have-consent -r /path/to/repo
 # Recursively scan a directory for all Git repos (only ones you own / have consent for)
 python -m src.main --i-have-consent -r /path/to/projects --scan-all
 
-# Limit to your own author identity for self-reflection
-python -m src.main --i-have-consent -r /path/to/repo -a "Your Name"
+# Consented multi-author team retrospective (every named author must have given informed consent)
+python -m src.main --i-have-consent --multi-author-team-retro \
+    --consented-author "Alice <alice@example.com>" \
+    --consented-author "Bob <bob@example.com>" \
+    -r /path/to/repo
 
 # Filter by date range
 python -m src.main --i-have-consent -r /path/to/repo -s 2024-01-01 -u 2024-12-31

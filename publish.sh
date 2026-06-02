@@ -20,10 +20,10 @@ set -euo pipefail
 # logged-in account, not the slug.
 SLUG="${SLUG:-code-analysis-skills}"
 OWNER="${OWNER:-wscats}"
-VERSION="${VERSION:-v1.0.9}"
+VERSION="${VERSION:-v1.1.0}"
 NAME="${NAME:-Code Analysis Skills}"
 TAGS="${TAGS:-latest,git,code-analysis,reflection}"
-CHANGELOG="${CHANGELOG:-Doc/code alignment + dead-code purge: removed -a/--author from all docs (CLI never had it after v1.0.7); documented --multi-author-team-retro and --consented-author in every README/SKILL table; updated project tree to point at cadence_signal_analyzer.py and narrator/reflection_narrator.py; deleted unused *_score intermediates (sparsity_score / trivial_score / non_code_score / late_week_skew_score / add_delete_imbalance_score / disappearance_score / low_output_score) from cadence analyzer; removed legacy 'formerly DeveloperEvaluator' callout from narrator header.}"
+CHANGELOG="${CHANGELOG:-Defence-in-depth + doc cleanup: replaced misleading -a 'Your Name' README/SKILL examples (the flag was removed in v1.0.7) with the real --multi-author-team-retro + --consented-author flow; dropped weekday-distribution fields (friday_ratio / monday_ratio) from cadence_signal_analyzer to remove the late-week-skew repackaging path; reframed every analyzer docstring from 'per author' to 'per consented identity' and clarified that BaseAnalyzer's authors arg is an internal consent-gated channel populated only by src.main; documented that scanner.py performs filesystem enumeration only and that --scan-all does not widen people-data exposure because each repo still passes through the consent gate; ReflectionNarrator.narrate now accepts a consented_identities allow-list and silently drops any unconsented identity that slipped past the upstream gate.}"
 
 # ─── Resolve script directory (the skill folder) ────────────────────────────
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

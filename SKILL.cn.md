@@ -96,8 +96,11 @@ python -m src.main --i-have-consent -r /path/to/repo
 # 扫描目录下所有仓库（仅限你拥有的仓库或已获全员同意）
 python -m src.main --i-have-consent -r /path/to/projects --scan-all
 
-# 仅分析自己（自查推荐）
-python -m src.main --i-have-consent -r /path/to/repo -a "Your Name"
+# 已获全员知情同意的多作者团队复盘（每位被分析者都需先同意）
+python -m src.main --i-have-consent --multi-author-team-retro \
+    --consented-author "Alice <alice@example.com>" \
+    --consented-author "Bob <bob@example.com>" \
+    -r /path/to/repo
 
 # 指定时间范围 + HTML 输出
 python -m src.main --i-have-consent -r /path/to/repo -s 2024-01-01 -u 2024-12-31 -f html -o report.html

@@ -36,7 +36,7 @@ this narrator never decides on its own which identities to summarise.
 """
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,11 @@ class ReflectionNarrator:
     Downstream consumers must use the journal-style fields above.
     """
 
-    def narrate(self, repo_metrics: Dict) -> Dict:
+    def narrate(
+        self,
+        repo_metrics: Dict,
+        consented_identities: Optional[List[str]] = None,
+    ) -> Dict:
         """
         Build the per-identity self-reflection narrative.
 
@@ -103,17 +107,47 @@ class ReflectionNarrator:
                           'cadence_signals'. Each is keyed by the *already
                           consent-scoped* Git identity, as enforced upstream
                           by the orchestrator.
+            consented_identities: Optional defence-in-depth allow-list of
+                          Git identities the orchestrator has confirmed are
+                          consent-scoped for this run. When provided, this
+                          method silently drops any identity present in
+                          ``repo_metrics`` that is *not* in the allow-list
+                          and logs a warning, even if upstream filtering
+                          missed it. ``None`` (the default) preserves the
+                          historical behaviour of trusting the upstream
+                          consent gate.
 
         Returns:
             Dict keyed by Git identity with journal-style reflection results.
         """
-        all_authors = set()
+        discovered = set()
         for analyzer_data in repo_metrics.values():
             if isinstance(analyzer_data, dict):
-                all_authors.update(analyzer_data.keys())
+                discovered.update(analyzer_data.keys())
+
+        if consented_identities is not None:
+            allow_lower = {ci.lower() for ci in consented_identities}
+            allow_lower.update(
+                ci.split("<")[0].strip().lower() for ci in consented_identities if "<" in ci
+            )
+            allowed = set()
+            for identity in discovered:
+                ident_lower = identity.lower()
+                # Match either by full name/email or by substring against
+                # the consented entries — mirrors BaseAnalyzer._author_matches.
+                if any(a in ident_lower or ident_lower in a for a in allow_lower):
+                    allowed.add(identity)
+            dropped = discovered - allowed
+            if dropped:
+                logger.warning(
+                    "ReflectionNarrator dropped %d unconsented identity/identities "
+                    "that slipped past the upstream gate: %s",
+                    len(dropped), sorted(dropped),
+                )
+            discovered = allowed
 
         results = {}
-        for author in sorted(all_authors):
+        for author in sorted(discovered):
             commit = repo_metrics.get("commit_patterns", {}).get(author, {})
             habit = repo_metrics.get("work_habits", {}).get(author, {})
             eff = repo_metrics.get("efficiency", {}).get(author, {})

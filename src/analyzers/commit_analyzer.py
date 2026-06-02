@@ -2,7 +2,7 @@
 Commit Analyzer - Analyzes commit patterns and behaviors.
 
 Metrics include:
-  - Total commits per author
+  - Total commits for the consented identity
   - Commit frequency (daily/weekly/monthly)
   - Average commits per day
   - Commit message length & quality
@@ -20,14 +20,26 @@ logger = logging.getLogger(__name__)
 
 
 class CommitAnalyzer(BaseAnalyzer):
-    """Analyzes commit patterns and behaviors per author."""
+    """Computes descriptive commit-pattern markers per consented identity.
+
+    The orchestrator restricts ``BaseAnalyzer._get_commits`` to either the
+    local Git user (self-scope, default) or to authors who have given
+    informed consent (``--multi-author-team-retro`` mode). This analyzer
+    only operates on commits the orchestrator has already authorised.
+
+    Output is descriptive only and MUST NOT be used for evaluation,
+    ranking, surveillance, or HR decisions.
+    """
 
     def analyze(self) -> Dict:
         """
-        Analyze commit patterns for each author.
+        Compute descriptive commit-pattern markers on the *already-scoped*
+        commit set.
 
         Returns:
-            Dict keyed by author name with commit pattern metrics.
+            Dict keyed by the consented Git identity with descriptive
+            commit-pattern markers. In self-scope mode this dict has at
+            most one entry (the local Git user).
         """
         author_data = defaultdict(lambda: {
             "total_commits": 0,

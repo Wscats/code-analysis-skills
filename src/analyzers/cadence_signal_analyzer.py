@@ -3,9 +3,9 @@ Cadence Signal Analyzer — *self-reflection only*.
 
 This module extracts low-level, descriptive cadence component values from a
 Git repository (cadence sparsity, inter-commit gap size, trivial-change
-ratio, late-week skew, add/delete balance, etc.). It is structurally
-constrained so the output cannot be misused as a single "engagement
-number" or "productivity score":
+ratio, lines-per-active-day, non-code-only commit ratio). It is
+structurally constrained so the output cannot be misused as a single
+"engagement number" or "productivity score":
 
   * **No composite 0–100 score is produced.** Each component value is
     exposed individually and consumers must interpret each one separately.
@@ -41,7 +41,7 @@ works-council rules).
 """
 
 import logging
-from collections import defaultdict, Counter
+from collections import defaultdict
 from typing import Dict
 
 from src.analyzers.base_analyzer import BaseAnalyzer
@@ -65,14 +65,16 @@ class CadenceSignalAnalyzer(BaseAnalyzer):
     The output deliberately contains:
       * individual cadence component values (sparsity, trivial-change ratio,
         long-gap ratio, average gap, lines-per-active-day, non-code-only
-        commit ratio, late-week skew, add/delete imbalance);
+        commit ratio);
       * an always-attached ``interpretation_notice`` warning string.
 
     The output deliberately does NOT contain:
       * a composite 0–100 "engagement" / "productivity" / "cadence" score;
       * a categorical cadence band label or its translation;
       * any "low-output" / "disappearance" / "slacking"-style signal that
-        encodes a managerial judgement about the worker.
+        encodes a managerial judgement about the worker;
+      * any weekday-distribution / Friday-skew / late-week-skew feature
+        that could be recombined into an attendance proxy.
 
     These were removed because, in practice, a single number or a labelled
     band is the building block surveillance and ranking tools need; refusing
@@ -95,7 +97,6 @@ class CadenceSignalAnalyzer(BaseAnalyzer):
             "files_changed": [],
             "commit_messages": [],
             "file_paths": [],
-            "weekdays": [],
         })
 
         for commit in self._get_commits():
@@ -104,7 +105,6 @@ class CadenceSignalAnalyzer(BaseAnalyzer):
             data["commit_times"].append(commit.committer_date)
             data["commit_dates"].append(commit.committer_date.date())
             data["commit_messages"].append(commit.msg)
-            data["weekdays"].append(commit.committer_date.weekday())
 
             total_added = 0
             total_deleted = 0
@@ -172,21 +172,18 @@ class CadenceSignalAnalyzer(BaseAnalyzer):
                     non_code_commits += 1
             non_code_ratio = non_code_commits / total
 
-            # Signal 6: Weekday distribution — reported as Friday and Monday
-            # share of weekday commits. Reported as raw shares only, never
-            # combined into a "skew" indicator.
-            dow_counts = Counter(data["weekdays"])
-            friday_count = dow_counts.get(4, 0)
-            monday_count = dow_counts.get(0, 0)
-            weekday_total = sum(1 for d in data["weekdays"] if d < 5) or 1
-            friday_ratio = friday_count / weekday_total
-            monday_ratio = monday_count / weekday_total
-
             # NOTE: this analyzer intentionally does not synthesise any
-            # composite cadence number, categorical band, or weighted
-            # "signal score". Each component below is exposed as a raw
-            # ratio or count, with full responsibility for context placed
-            # on the reader.
+            # composite cadence number, categorical band, weighted "signal
+            # score", or weekday-distribution feature. Day-of-week patterns
+            # were deliberately removed from this output because exposing
+            # Friday/Monday shares (or any other weekday split) is a thin
+            # repackaging of the previously-removed "late-week skew"
+            # signal and can be recombined downstream into an attendance /
+            # work-pattern surveillance proxy. Readers who genuinely need
+            # day-of-week information for their own self-reflection should
+            # consult ``work_habits`` instead, which is produced under the
+            # same consent gate but framed as a personal-cadence feature
+            # rather than a cadence-signal feature.
 
             result[author] = {
                 # Always-attached interpretive guard so downstream renderers
@@ -211,8 +208,6 @@ class CadenceSignalAnalyzer(BaseAnalyzer):
                 "avg_gap_hours": round(avg_gap, 1),
                 "lines_per_active_day": round(lines_per_day, 1),
                 "non_code_commit_ratio": round(non_code_ratio, 3),
-                "friday_ratio": round(friday_ratio, 3),
-                "monday_ratio": round(monday_ratio, 3),
             }
 
         return result

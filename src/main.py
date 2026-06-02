@@ -277,8 +277,14 @@ def run_analysis(
 
         # Per-identity journal-style reflection narrative.
         # NOT an evaluation, NOT a score, NOT a grade.
+        # ``consented_identities`` is a defence-in-depth allow-list: even if
+        # something upstream slips an unconsented identity into
+        # ``repo_metrics``, the narrator will drop it instead of producing
+        # a personal narrative for them.
         narrator = ReflectionNarrator()
-        repo_metrics["reflections"] = narrator.narrate(repo_metrics)
+        repo_metrics["reflections"] = narrator.narrate(
+            repo_metrics, consented_identities=list(authors_filter),
+        )
 
         # Stamp scope metadata on every repo's metrics so reporters can
         # render an honest provenance banner and refuse cross-author comparison
