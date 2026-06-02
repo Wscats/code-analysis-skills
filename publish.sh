@@ -2,11 +2,11 @@
 # Publish this skill to ClawHub.
 #
 # Slug:    wscats/code-analysis-skills
-# Version: v1.0.7
+# Version: 1.1.1   (NOTE: pure semver, no leading `v` — ClawHub UI adds the `v` itself)
 #
 # Usage:
 #   ./publish.sh                # publish using defaults below
-#   VERSION=v1.0.8 ./publish.sh # override version
+#   VERSION=1.1.2 ./publish.sh  # override version (no leading `v`)
 #
 # Prerequisites:
 #   - `clawhub` CLI installed and logged in (`clawhub login`).
@@ -20,10 +20,10 @@ set -euo pipefail
 # logged-in account, not the slug.
 SLUG="${SLUG:-code-analysis-skills}"
 OWNER="${OWNER:-wscats}"
-VERSION="${VERSION:-v1.1.0}"
+VERSION="${VERSION:-1.1.1}"
 NAME="${NAME:-Code Analysis Skills}"
 TAGS="${TAGS:-latest,git,code-analysis,reflection}"
-CHANGELOG="${CHANGELOG:-Defence-in-depth + doc cleanup: replaced misleading -a Your-Name README and SKILL examples (the flag was removed in v1.0.7) with the real --multi-author-team-retro + --consented-author flow; dropped weekday-distribution fields friday_ratio and monday_ratio from cadence_signal_analyzer to remove the late-week-skew repackaging path; reframed every analyzer docstring from per-author to per-consented-identity and clarified that BaseAnalyzer authors arg is an internal consent-gated channel populated only by src.main; documented that scanner.py performs filesystem enumeration only and that --scan-all does not widen people-data exposure because each repo still passes through the consent gate; ReflectionNarrator.narrate now accepts a consented_identities allow-list and silently drops any unconsented identity that slipped past the upstream gate.}"
+CHANGELOG="${CHANGELOG:-Republish of v1.1.0 with a corrected pure-semver version string. ClawHub UI was rendering vv1.1.0 because the previous publish included a leading v. No code changes vs v1.1.0.}"
 
 # ─── Resolve script directory (the skill folder) ────────────────────────────
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
